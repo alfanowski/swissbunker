@@ -1,0 +1,22 @@
+name: Task
+description: A unit of work from the implementation plan
+labels: [task]
+body:
+  - type: input
+    id: phase
+    attributes:
+      label: Phase
+      placeholder: "Phase 3 — Vector pipeline"
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in, and explicitly what is out.
+    validations: { required: true }
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: A verifiable condition, not a feeling.
+    validations: { required: true }

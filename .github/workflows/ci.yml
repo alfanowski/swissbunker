@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Documentation integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Relative markdown links are the ones that rot silently on rename.
+      # Zero dependencies on purpose: this must keep working offline and unattended.
+      # Relative markdown links are the ones that rot silently on rename.
+      # Zero dependencies on purpose: this must keep working offline and unattended.
+      - name: Check relative links
+        run: |
+          broken=$(mktemp)
+          find . -name '*.md' -not -path './node_modules/*' -not -path './target/*' \
+            -print0 | while IFS= read -r -d '' md; do
+              dir=$(dirname "$md")
+              # Pull (target) out of markdown links; skip external URLs and pure anchors.
+              grep -oE '\]\([^)]+\)' "$md" \
+                | sed -E 's/^\]\(//; s/\)$//; s/#.*$//' \
+                | grep -vE '^(https?:|mailto:|$)' \
+                | while IFS= read -r target; do
+                    [ -e "$dir/$target" ] \
+                      || echo "::error file=$md::broken link -> $target" >> "$broken"
+                  done
+            done
+          # The loops above run in subshells, so failures are collected in a file
+          # rather than a variable — a shell variable set inside a pipe never
+          # propagates back to the parent.
+          if [ -s "$broken" ]; then cat "$broken"; exit 1; fi
+          echo "All relative links resolve."
+
+      - name: Check required files
+        run: |
+          for f in README.md LICENSE CHANGELOG.md .gitignore \
+                   docs/specs/2026-08-18-swissbunker-design.md; do
+            [ -f "$f" ] || { echo "::error::missing required file: $f"; exit 1; }
+          done
+          echo "Repository structure intact."
+
+  # Enabled in Phase 1, once crates/ exists.
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('Cargo.toml') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test --all-features
+
+  # Enabled in Phase 1, once web/ exists.
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('web/package.json') != '' }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test

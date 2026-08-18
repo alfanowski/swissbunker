@@ -1,0 +1,27 @@
+name: Bug
+description: Something behaves differently from the specification
+labels: [bug]
+body:
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Runtime mode
+      options: [Portable (file://), Connected (daemon), Bootstrap (curl), Unclear]
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes:
+      label: Host environment
+      placeholder: "macOS 26.1, Chrome 141, Samsung T7 over USB 3.2"
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: Quote the spec section that defines the expected behaviour, if there is one.
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+    validations: { required: true }
