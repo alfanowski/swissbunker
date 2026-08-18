@@ -106,6 +106,10 @@ rather than the ~2 GB assumed.
 See the [Phase 0 findings](docs/reports/2026-08-19-phase-0-findings.md), including a full
 account of what the spike did **not** prove.
 
+Next: the [Phase 1 plan](docs/plans/2026-08-19-phase-1-reader.md) — a read-only SQLite VFS
+over blocking Blob-URL reads, an LRU page cache, and FTS5 search, verified against real
+Italian Wikipedia from `file://`.
+
 ## License
 
 Proprietary. All rights reserved. See [LICENSE](LICENSE).
