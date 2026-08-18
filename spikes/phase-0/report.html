@@ -1,0 +1,86 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phase 0 — Results matrix</title>
+<style>
+body{font:14px/1.6 ui-monospace,monospace;margin:2rem}
+table{border-collapse:collapse;margin:1rem 0;font-size:13px}
+th,td{border:1px solid #d4d4d8;padding:.4rem .7rem;text-align:left;vertical-align:top}
+th{background:#f4f4f5}
+.ok{background:#dcfce7}.fail{background:#fee2e2}.na{background:#f4f4f5;color:#71717a}
+</style>
+<h1>Phase 0 — Results matrix</h1>
+<p>Select every JSON file in <code>results/</code>.</p>
+<input type="file" id="files" multiple accept=".json">
+<div id="out"></div>
+<script>
+document.getElementById('files').addEventListener('change', async function (e) {
+  var records = [];
+  for (var i = 0; i < e.target.files.length; i++) {
+    var f = e.target.files[i];
+    try {
+      var rec = JSON.parse(await f.text());
+      // The operator encodes browser and OS in the filename; the harness cannot know them.
+      var parts = f.name.replace(/\.json$/, '').split('-');
+      rec._file = f.name;
+      rec._protocol = parts[1] || '?';
+      rec._browser = parts[2] || '?';
+      rec._os = parts[3] || '?';
+      records.push(rec);
+    } catch (err) {
+      console.warn('skipping unparseable file', f.name, err);
+    }
+  }
+
+  // One table per probe: rows are checks, columns are browser/OS/protocol combinations.
+  var byProbe = {};
+  records.forEach(function (r) { (byProbe[r.probe] = byProbe[r.probe] || []).push(r); });
+
+  var html = '';
+  Object.keys(byProbe).sort().forEach(function (probe) {
+    var recs = byProbe[probe];
+    var checkNames = {};
+    recs.forEach(function (r) { Object.keys(r.checks).forEach(function (k) { checkNames[k] = 1; }); });
+
+    html += '<h2>' + probe + ' — ' + recs[0].title + '</h2><table><tr><th>check</th>';
+    recs.forEach(function (r) {
+      html += '<th>' + r._browser + '<br>' + r._os + '<br><em>' + r._protocol + '</em></th>';
+    });
+    html += '</tr>';
+
+    Object.keys(checkNames).sort().forEach(function (name) {
+      html += '<tr><td>' + name + '</td>';
+      recs.forEach(function (r) {
+        var c = r.checks[name];
+        if (!c) { html += '<td class="na">—</td>'; return; }
+        var cls = c.ok ? 'ok' : 'fail';
+        var label = c.ok ? 'PASS' : 'FAIL';
+        var detail = typeof c.detail === 'string' ? c.detail : '';
+        html += '<td class="' + cls + '" title="' + detail.replace(/"/g, '&quot;') + '">'
+             + label + (detail ? '<br><small>' + detail.slice(0, 40) + '</small>' : '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+
+    // Measurements get their own table: p50 and p95 are the numbers the design budget needs.
+    var measureNames = {};
+    recs.forEach(function (r) { Object.keys(r.measurements).forEach(function (k) { measureNames[k] = 1; }); });
+    if (Object.keys(measureNames).length) {
+      html += '<table><tr><th>measurement (p50 / p95 ms)</th>';
+      recs.forEach(function (r) { html += '<th>' + r._browser + ' ' + r._protocol + '</th>'; });
+      html += '</tr>';
+      Object.keys(measureNames).sort().forEach(function (name) {
+        html += '<tr><td>' + name + '</td>';
+        recs.forEach(function (r) {
+          var m = r.measurements[name];
+          html += m ? '<td>' + m.p50 + ' / ' + m.p95 + '</td>' : '<td class="na">—</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</table>';
+    }
+  });
+
+  document.getElementById('out').innerHTML = html || '<p>No parseable records selected.</p>';
+});
+</script>

@@ -36,6 +36,9 @@ browser × sistema operativo. Nessun codice di questa fase entra in produzione.
 - **Ogni misura di latenza è la mediana di ≥ 20 ripetizioni**, riportata con p50 e p95.
   Una singola misura non è un dato.
 - **Nessun probe scrive fuori da `spikes/phase-0/results/`.**
+- **La condizione `file://` va eseguita a mano.** Playwright MCP rifiuta il protocollo
+  `file:`, quindi non è automatizzabile: si può automatizzare solo il controllo `http://`,
+  che da solo non prova nulla. È un limite dello strumento, non della piattaforma.
 - Codice, identificatori e commenti in inglese. Documentazione di piano in italiano.
 
 ---
@@ -1160,13 +1163,10 @@ npm install sql.js@1.11.0
 ./tools/build-vendor.sh
 ```
 
-Aggiungere a `p4-sqlite-lazy.html`, subito dopo `<script src="lib/file-vfs.js"></script>`:
-
-```html
-<script src="vendor/sql-wasm.iife.js"></script>
-```
-
-Ricaricare la pagina in entrambi i protocolli. Atteso:
+Il tag `<script src="vendor/sql-wasm.iife.js">` è già presente in `p4-sqlite-lazy.html` con
+un handler `onerror`, quindi la pagina funziona anche prima che il bundle esista: i primi
+cinque check girano e il sesto riporta che il bundle manca. Costruito il bundle, basta
+ricaricare la pagina in entrambi i protocolli. Atteso:
 `{ matched: 1, title: "Document 1337000" }`.
 
 - [ ] **Step 5: Committare**

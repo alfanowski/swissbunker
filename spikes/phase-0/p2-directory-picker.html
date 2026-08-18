@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P2</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}button,input{font:inherit;margin:.5rem 0}</style>
+<h1>P2 — Directory enumeration under a null origin</h1>
+<p>Point every control below at the mounted <code>SWISSTEST</code> volume.</p>
+
+<h3>Method A — webkitdirectory (expected to be universal)</h3>
+<input type="file" id="dir-input" webkitdirectory multiple>
+
+<h3>Method B — showDirectoryPicker (Chromium only)</h3>
+<button id="fsa-btn">Pick directory via File System Access</button>
+
+<h3>Method C — drag and drop a folder</h3>
+<div id="drop" style="border:2px dashed #999;padding:2rem;text-align:center;border-radius:8px">Drop the volume here</div>
+
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script>
+(function () {
+  Probe.init('p2', 'Directory enumeration under a null origin');
+
+  // API availability is recorded before any user interaction, because "the API does not
+  // exist" and "the API exists but the call is rejected" are different findings.
+  Probe.check('fsa_api_present', function () {
+    return typeof window.showDirectoryPicker === 'function';
+  });
+  Probe.check('webkitdirectory_supported', function () {
+    return 'webkitdirectory' in document.createElement('input');
+  });
+  Probe.check('datatransfer_items_present', function () {
+    return typeof DataTransferItem !== 'undefined'
+      && ('webkitGetAsEntry' in DataTransferItem.prototype);
+  });
+
+  function summarise(files) {
+    var total = 0, biggest = null;
+    for (var i = 0; i < files.length; i++) {
+      total += files[i].size;
+      if (!biggest || files[i].size > biggest.size) { biggest = files[i]; }
+    }
+    return {
+      count: files.length,
+      totalBytes: total,
+      totalGB: Math.round(total / 1e9 * 100) / 100,
+      largestFile: biggest ? { name: biggest.name, bytes: biggest.size,
+                               GB: Math.round(biggest.size / 1e9 * 100) / 100 } : null,
+      // A File over 4 GB reported with a wrong size is exactly the R6 failure mode.
+      largestOver4GB: biggest ? biggest.size > 4 * 1024 * 1024 * 1024 : false
+    };
+  }
+
+  // --- Method A: webkitdirectory -------------------------------------------------------
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var t0 = performance.now();
+    var files = Array.prototype.slice.call(e.target.files);
+    var elapsed = performance.now() - t0;
+
+    await Probe.check('webkitdirectory_returned_files', function () { return files.length > 0; });
+    Probe.info('webkitdirectory_enumeration_ms', Math.round(elapsed));
+    Probe.info('webkitdirectory_summary', summarise(files));
+
+    // Reading one range proves the handle is live, not merely metadata.
+    await Probe.check('webkitdirectory_file_readable', async function () {
+      var target = files.filter(function (f) { return f.size > 1e9; })[0] || files[0];
+      var buf = await target.slice(0, 16).arrayBuffer();
+      return buf.byteLength === 16;
+    });
+
+    // Size correctness past 4 GB: read the final 16 bytes and confirm no error.
+    await Probe.check('large_file_tail_readable', async function () {
+      var big = files.filter(function (f) { return f.size > 4 * 1024 * 1024 * 1024; })[0];
+      if (!big) { return 'no file over 4 GB in this directory — inconclusive'; }
+      var buf = await big.slice(big.size - 16, big.size).arrayBuffer();
+      return buf.byteLength === 16;
+    });
+
+    Probe.finish();
+  });
+
+  // --- Method B: File System Access ----------------------------------------------------
+  document.getElementById('fsa-btn').addEventListener('click', async function () {
+    await Probe.check('fsa_picker_callable', async function () {
+      if (typeof window.showDirectoryPicker !== 'function') { return false; }
+      var handle = await window.showDirectoryPicker();
+      var names = [];
+      for await (var entry of handle.values()) { names.push(entry.name); }
+      return { entries: names.length, sample: names.slice(0, 5) };
+    });
+  });
+
+  // --- Method C: drag and drop ---------------------------------------------------------
+  var drop = document.getElementById('drop');
+  drop.addEventListener('dragover', function (e) { e.preventDefault(); });
+  drop.addEventListener('drop', async function (e) {
+    e.preventDefault();
+    await Probe.check('drop_folder_readable', async function () {
+      var items = Array.prototype.slice.call(e.dataTransfer.items);
+      var entry = items[0] && items[0].webkitGetAsEntry && items[0].webkitGetAsEntry();
+      if (!entry) { return false; }
+      if (!entry.isDirectory) { return 'dropped item is not a directory'; }
+      return await new Promise(function (resolve) {
+        entry.createReader().readEntries(function (entries) {
+          resolve({ entries: entries.length,
+                    sample: entries.slice(0, 5).map(function (x) { return x.name; }) });
+        }, function () { resolve(false); });
+      });
+    });
+  });
+}());
+</script>

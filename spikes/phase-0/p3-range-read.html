@@ -1,0 +1,125 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P3</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>P3 — Range-read correctness and latency</h1>
+<p>Select the <code>SWISSTEST</code> volume. The probe looks for <code>large-verifiable.bin</code>.</p>
+<input type="file" id="dir-input" webkitdirectory multiple>
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script>
+(function () {
+  Probe.init('p3', 'Range-read correctness and latency');
+
+  var PAGE = 4096;
+  var decoder = new TextDecoder();
+
+  // The fixture writes "PAGE:%012d:" at the start of every 4096-byte page, so the expected
+  // content of any offset is computable. This turns "did it read?" into "did it read the
+  // RIGHT bytes?" — the distinction that matters for a silent-corruption failure mode.
+  function expectedHeader(pageIndex) {
+    return 'PAGE:' + String(pageIndex).padStart(12, '0') + ':';
+  }
+
+  async function readPage(file, pageIndex) {
+    var off = pageIndex * PAGE;
+    var buf = await file.slice(off, off + 32).arrayBuffer();
+    return decoder.decode(new Uint8Array(buf));
+  }
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    var file = files.filter(function (f) { return f.name === 'large-verifiable.bin'; })[0];
+
+    if (!file) {
+      await Probe.check('fixture_found', function () { return false; });
+      Probe.finish();
+      return;
+    }
+
+    await Probe.check('fixture_found', function () { return true; });
+    Probe.info('file', { name: file.name, bytes: file.size,
+                         GB: Math.round(file.size / 1e9 * 100) / 100 });
+    var totalPages = Math.floor(file.size / PAGE);
+
+    // 1. Correctness at the boundaries and at the 4 GB line, where 32-bit offset bugs live.
+    await Probe.check('correctness_at_key_offsets', async function () {
+      var fourGBPage = Math.floor(4 * 1024 * 1024 * 1024 / PAGE);
+      var targets = [0, 1, 1000, fourGBPage - 1, fourGBPage, fourGBPage + 1,
+                     Math.floor(totalPages / 2), totalPages - 1];
+      var failures = [];
+      for (var i = 0; i < targets.length; i++) {
+        var p = targets[i];
+        if (p < 0 || p >= totalPages) { continue; }
+        var got = await readPage(file, p);
+        var want = expectedHeader(p);
+        if (got.indexOf(want) !== 0) {
+          failures.push({ page: p, expected: want, got: got.slice(0, 20) });
+        }
+      }
+      return failures.length === 0 ? true : failures;
+    });
+
+    // 2. Correctness under random access across the whole file.
+    await Probe.check('correctness_random_200', async function () {
+      var failures = 0;
+      for (var i = 0; i < 200; i++) {
+        var p = Math.floor(Math.random() * totalPages);
+        var got = await readPage(file, p);
+        if (got.indexOf(expectedHeader(p)) !== 0) { failures++; }
+      }
+      return failures === 0 ? true : failures + ' of 200 pages returned wrong bytes';
+    });
+
+    // 3. Latency of a single small random read — the HNSW-style access pattern the spec
+    //    rejected. This measurement is what justifies choosing IVF.
+    await Probe.measure('random_4kb_read_ms', async function () {
+      var p = Math.floor(Math.random() * totalPages);
+      await file.slice(p * PAGE, p * PAGE + PAGE).arrayBuffer();
+    }, 200);
+
+    // 4. Latency of one large contiguous read — the IVF access pattern.
+    await Probe.measure('contiguous_8mb_read_ms', async function () {
+      var maxOff = Math.max(0, file.size - 8 * 1024 * 1024);
+      var off = Math.floor(Math.random() * maxOff);
+      await file.slice(off, off + 8 * 1024 * 1024).arrayBuffer();
+    }, 20);
+
+    // 5. The decisive comparison: 1400 scattered small reads (an HNSW traversal) against
+    //    one 5.6 MB contiguous read (an IVF nprobe=32 scan). Similar byte counts,
+    //    opposite access patterns.
+    await Probe.measure('scattered_1400x4kb_ms', async function () {
+      for (var i = 0; i < 1400; i++) {
+        var p = Math.floor(Math.random() * totalPages);
+        await file.slice(p * PAGE, p * PAGE + PAGE).arrayBuffer();
+      }
+    }, 5);
+
+    await Probe.measure('contiguous_5_6mb_ms', async function () {
+      var bytes = Math.floor(5.6 * 1024 * 1024);
+      var off = Math.floor(Math.random() * Math.max(0, file.size - bytes));
+      await file.slice(off, off + bytes).arrayBuffer();
+    }, 20);
+
+    // 6. Parallel versus sequential reads — decides whether the IVF reader should issue
+    //    its list reads concurrently.
+    await Probe.measure('parallel_32x256kb_ms', async function () {
+      var jobs = [];
+      for (var i = 0; i < 32; i++) {
+        var off = Math.floor(Math.random() * Math.max(0, file.size - 262144));
+        jobs.push(file.slice(off, off + 262144).arrayBuffer());
+      }
+      await Promise.all(jobs);
+    }, 20);
+
+    await Probe.measure('sequential_32x256kb_ms', async function () {
+      for (var i = 0; i < 32; i++) {
+        var off = Math.floor(Math.random() * Math.max(0, file.size - 262144));
+        await file.slice(off, off + 262144).arrayBuffer();
+      }
+    }, 20);
+
+    Probe.finish();
+  });
+}());
+</script>

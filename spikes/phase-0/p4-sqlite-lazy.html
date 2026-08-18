@@ -1,0 +1,126 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P4</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>P4 — SQLite over range reads</h1>
+<p>Select the <code>SWISSTEST</code> volume. The probe looks for <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" webkitdirectory multiple>
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script src="lib/file-vfs.js"></script>
+<!-- Built by tools/build-vendor.sh. Absent until then, which check 6 reports rather than
+     crashes on: the first five checks are worth running without it. -->
+<script src="vendor/sql-wasm.iife.js" onerror="console.warn('vendor bundle not built yet')"></script>
+<script>
+(function () {
+  Probe.init('p4', 'SQLite over range reads');
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    var db = files.filter(function (f) { return f.name === 'fts-test.sqlite'; })[0];
+
+    if (!db) {
+      await Probe.check('fixture_found', function () { return false; });
+      Probe.finish();
+      return;
+    }
+
+    await Probe.check('fixture_found', function () { return true; });
+    Probe.info('database', { bytes: db.size, GB: Math.round(db.size / 1e9 * 100) / 100 });
+
+    var reader = new LazyFileReader(db, { chunkSize: 1024 * 1024 });
+
+    // 1. The cheapest possible proof the reader works: the first 15 bytes of any SQLite
+    //    file are the literal header string.
+    await Probe.check('sqlite_header_valid', async function () {
+      await reader.prefetch(0, 100);
+      var head = reader.readSync(0, 15);
+      if (!head) { return 'cache miss on the first page'; }
+      return new TextDecoder().decode(head) === 'SQLite format 3';
+    });
+
+    // 2. Page size and page count come from the header, proving we can navigate the file's
+    //    own structure rather than merely read arbitrary bytes.
+    await Probe.check('header_fields_sane', async function () {
+      await reader.prefetch(0, 100);
+      var head = reader.readSync(0, 100);
+      if (!head) { return 'cache miss'; }
+      var dv = new DataView(head.buffer, head.byteOffset, head.byteLength);
+      var pageSize = dv.getUint16(16);          // a stored value of 1 means 65536
+      if (pageSize === 1) { pageSize = 65536; }
+      var pageCount = dv.getUint32(28);
+      Probe.info('sqlite_header', { pageSize: pageSize, pageCount: pageCount,
+                                    impliedBytes: pageSize * pageCount });
+      return pageSize === 4096 && pageCount > 0;
+    });
+
+    // 3. Read amplification: how many bytes must be pulled to answer one FTS5 query?
+    //    This is the number that decides whether the design meets NF2, so it is measured
+    //    rather than estimated. An FTS5 term lookup touches the term index B-tree (a few
+    //    pages), then a doclist (contiguous), then content rows (scattered) — roughly 40
+    //    page touches, simulated here over the real file layout.
+    var bytesBefore = reader.stats.bytesRead;
+    await Probe.measure('simulated_fts_query_ms', async function () {
+      for (var i = 0; i < 40; i++) {
+        var off = Math.floor(Math.random() * Math.max(0, db.size - 4096));
+        await reader.prefetch(off, 4096);
+        reader.readSync(off, 4096);
+      }
+    }, 20);
+
+    Probe.info('reader_stats_after_simulation', JSON.parse(JSON.stringify(reader.stats)));
+    // The delta across the measured runs only — reader.stats.bytesRead is cumulative from
+    // page load and would otherwise fold the header prefetch into the per-query figure.
+    Probe.info('bytes_per_simulated_query',
+      Math.round((reader.stats.bytesRead - bytesBefore) / 20));
+
+    // 4. Memory ceiling: the cache must never approach the heap limit. If a 10 GB database
+    //    forces the cache past ~500 MB to stay useful, the chunk size is wrong.
+    await Probe.check('cache_stayed_bounded', function () {
+      var cachedBytes = reader.cache.size * reader.chunkSize;
+      Probe.info('cache_bytes', cachedBytes);
+      return cachedBytes < 500 * 1024 * 1024;
+    });
+
+    // 5. Heap headroom, to confirm constraint V4 (4 GB WASM32 heap) empirically.
+    await Probe.check('heap_headroom', function () {
+      if (!performance.memory) { return 'performance.memory unavailable in this browser'; }
+      return {
+        usedMB: Math.round(performance.memory.usedJSHeapSize / 1e6),
+        limitMB: Math.round(performance.memory.jsHeapSizeLimit / 1e6)
+      };
+    });
+
+    // 6. A real FTS5 query against the planted needle. The fixture put the token
+    //    "xyzzyneedlemarker" in exactly one row out of two million, so the correct answer
+    //    is known in advance: one row, titled "Document 1337000". A different answer means
+    //    the lazy read path returns wrong bytes — the risk this probe exists to rule out.
+    await Probe.check('real_fts5_query', async function () {
+      if (typeof SqlJs === 'undefined') {
+        return 'vendor bundle not built — run tools/build-vendor.sh, then reload';
+      }
+      // esbuild's --global-name may expose the init function directly or under .default,
+      // depending on how sql.js's UMD wrapper is interpreted. Accept both.
+      var initSqlJs = (typeof SqlJs === 'function') ? SqlJs : SqlJs.default;
+      if (typeof initSqlJs !== 'function') { return 'SqlJs global is not callable'; }
+      var SQL = await initSqlJs({ locateFile: function (f) { return f; } });
+      var FS = SQL.FS;
+      FS.createLazyFile('/', 'fts.sqlite', {
+        length: db.size,
+        read: function (offset, length) {
+          var bytes = reader.readSync(offset, length);
+          if (!bytes) { throw new Error('lazy read miss at offset ' + offset); }
+          return bytes;
+        }
+      }, true, false);
+      var handle = new SQL.Database('/fts.sqlite', { filename: true });
+      var rows = handle.exec("SELECT title FROM docs WHERE docs MATCH 'xyzzyneedlemarker'");
+      handle.close();
+      if (!rows.length || !rows[0].values.length) { return 'needle not found'; }
+      return { matched: rows[0].values.length, title: rows[0].values[0][0] };
+    });
+
+    Probe.finish();
+  });
+}());
+</script>

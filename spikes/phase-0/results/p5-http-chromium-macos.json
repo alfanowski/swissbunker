@@ -1,0 +1,99 @@
+{
+  "probe": "p5",
+  "title": "WebGPU and Workers under a null origin",
+  "context": {
+    "origin": "http://localhost:8391",
+    "protocol": "http:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 16,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "webgpu_api_present": {
+      "ok": true,
+      "detail": true
+    },
+    "webgpu_device_acquired": {
+      "ok": true,
+      "detail": true
+    },
+    "compute_shader_dispatch": {
+      "ok": true,
+      "detail": true
+    },
+    "one_gb_buffer_allocation": {
+      "ok": true,
+      "detail": true
+    },
+    "blob_worker_runs": {
+      "ok": true,
+      "detail": true
+    },
+    "webgpu_inside_blob_worker": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "why": "adapter acquired"
+      }
+    },
+    "sab_status_under_null_origin": {
+      "ok": true,
+      "detail": {
+        "crossOriginIsolated": false,
+        "sharedArrayBuffer": false,
+        "note": "absence here is expected under file:// and is why CPU inference stays single-threaded"
+      }
+    }
+  },
+  "measurements": {},
+  "info": {
+    "adapter": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "texture-compression-astc-sliced-3d",
+        "float32-blendable",
+        "texture-compression-astc",
+        "texture-compression-etc2",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "clip-distances",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
+      ]
+    },
+    "limits": {
+      "maxBufferSize": 4294967292,
+      "maxBufferSizeGB": 4.29,
+      "maxStorageBufferBindingSize": 4294967292,
+      "maxComputeWorkgroupStorageSize": 32768,
+      "maxComputeInvocationsPerWorkgroup": 1024
+    },
+    "tier_ceiling_hint": "T2 or higher plausible"
+  },
+  "_provenance": {
+    "browser": "chromium (playwright)",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "note": "control condition only; file:// must be run manually"
+  }
+}

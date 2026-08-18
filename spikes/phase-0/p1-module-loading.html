@@ -1,0 +1,90 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P1</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>P1 — Code loading under a null origin</h1>
+<p>Run from <code>file://</code> and from <code>http://localhost:8000</code>, then compare.</p>
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script>
+(async function () {
+  Probe.init('p1', 'Code loading under a null origin');
+
+  // 1. Classic <script src>. If this fails, nothing else is possible — probe.js itself
+  //    was loaded this way, so its presence is the evidence.
+  await Probe.check('classic_script_tag', function () {
+    return typeof Probe === 'object';
+  });
+
+  // 2. Dynamic import of an ES module — the most likely casualty of a null origin,
+  //    because module fetches are always CORS-checked.
+  await Probe.check('dynamic_esm_import', async function () {
+    var mod = await import('./lib/vendor-probe.js');
+    return mod.marker === 'esm-loaded';
+  });
+
+  // 3. fetch() of a sibling file — needed by any library that loads its own .wasm.
+  await Probe.check('fetch_sibling_file', async function () {
+    var res = await fetch('lib/probe.js');
+    var text = await res.text();
+    return text.length > 100;
+  });
+
+  // 4. WebAssembly from inline bytes — the fallback when fetch is blocked. These eight
+  //    bytes are the smallest valid wasm module: magic number plus version.
+  await Probe.check('wasm_instantiate_inline', async function () {
+    var bytes = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+    var mod = await WebAssembly.instantiate(bytes);
+    return typeof mod.instance === 'object';
+  });
+
+  // 5. Blob URL script injection — the standard escape hatch when module loading is blocked.
+  await Probe.check('blob_url_script', function () {
+    return new Promise(function (resolve) {
+      var blob = new Blob(['window.__BLOB_SCRIPT_RAN__ = true;'], { type: 'text/javascript' });
+      var s = document.createElement('script');
+      s.src = URL.createObjectURL(blob);
+      s.onload = function () { resolve(window.__BLOB_SCRIPT_RAN__ === true); };
+      s.onerror = function () { resolve(false); };
+      document.head.appendChild(s);
+    });
+  });
+
+  // 6. Storage under a null origin. localStorage and IndexedDB are known to be unreliable
+  //    here, and the answer decides where user settings are allowed to live.
+  await Probe.check('localStorage_usable', function () {
+    localStorage.setItem('__probe__', '1');
+    var ok = localStorage.getItem('__probe__') === '1';
+    localStorage.removeItem('__probe__');
+    return ok;
+  });
+
+  await Probe.check('indexeddb_usable', function () {
+    return new Promise(function (resolve) {
+      var req;
+      try { req = indexedDB.open('__probe__', 1); }
+      catch (e) { resolve(false); return; }
+      req.onsuccess = function () { req.result.close(); resolve(true); };
+      req.onerror = function () { resolve(false); };
+      req.onblocked = function () { resolve(false); };
+      setTimeout(function () { resolve(false); }, 3000);
+    });
+  });
+
+  // 7. OPFS — the sandboxed writable store, our only option for user data in Portable mode.
+  await Probe.check('opfs_usable', async function () {
+    if (!navigator.storage || !navigator.storage.getDirectory) { return false; }
+    var root = await navigator.storage.getDirectory();
+    var fh = await root.getFileHandle('__probe__', { create: true });
+    var w = await fh.createWritable();
+    await w.write('ok');
+    await w.close();
+    var f = await fh.getFile();
+    var text = await f.text();
+    await root.removeEntry('__probe__');
+    return text === 'ok';
+  });
+
+  Probe.finish();
+}());
+</script>

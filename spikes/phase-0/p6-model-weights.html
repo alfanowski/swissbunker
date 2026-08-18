@@ -1,0 +1,113 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P6</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>P6 — Model weights from File objects</h1>
+<p>Select the volume containing the <code>.gguf</code> file.</p>
+<input type="file" id="dir-input" webkitdirectory multiple>
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script>
+(function () {
+  Probe.init('p6', 'Model weights from File objects');
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    var gguf = files.filter(function (f) { return /\.gguf$/i.test(f.name); })[0];
+
+    if (!gguf) {
+      await Probe.check('weights_found', function () { return false; });
+      Probe.finish();
+      return;
+    }
+
+    await Probe.check('weights_found', function () { return true; });
+    Probe.info('weights', { name: gguf.name, bytes: gguf.size,
+                            GB: Math.round(gguf.size / 1e9 * 100) / 100 });
+
+    // 1. Parse the GGUF header from a range read. GGUF starts with the magic "GGUF"
+    //    followed by a little-endian uint32 version. Reading structure — not just bytes —
+    //    from the file is what makes a streaming loader possible.
+    await Probe.check('gguf_header_parsed', async function () {
+      var buf = await gguf.slice(0, 8).arrayBuffer();
+      var dv = new DataView(buf);
+      var magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+      var version = dv.getUint32(4, true);
+      Probe.info('gguf', { magic: magic, version: version });
+      return magic === 'GGUF';
+    });
+
+    // 2. Throughput of streaming the file in 64 MB chunks. This becomes "how long before
+    //    the model answers" — the dominant term in NF1's 90-second budget.
+    await Probe.measure('stream_512mb_ms', async function () {
+      var CHUNK = 64 * 1024 * 1024;
+      var limit = Math.min(gguf.size, 512 * 1024 * 1024);
+      for (var off = 0; off < limit; off += CHUNK) {
+        await gguf.slice(off, Math.min(off + CHUNK, limit)).arrayBuffer();
+      }
+    }, 5);
+
+    // 3. Can the whole file be held at once? This is the naive path every inference library
+    //    takes by default, and the one that fails on a 2.5 GB Tier 2 model against the
+    //    4 GB WASM32 heap of constraint V4.
+    await Probe.check('whole_file_in_memory', async function () {
+      if (gguf.size > 1.5e9) { return 'skipped: file too large to risk on the main thread'; }
+      try {
+        var buf = await gguf.arrayBuffer();
+        var ok = buf.byteLength === gguf.size;
+        buf = null;
+        return ok;
+      } catch (err) {
+        return 'failed: ' + err.message;
+      }
+    });
+
+    // 4. Does the file survive the Cache API? If a File can be stashed as a Response, then
+    //    libraries expecting a cached HTTP fetch can be satisfied with almost no fork.
+    //    This is the cheap path for risk R2, so it is tested before the expensive one.
+    await Probe.check('cache_api_accepts_file', async function () {
+      if (typeof caches === 'undefined') { return 'Cache API unavailable (expected under file://)'; }
+      try {
+        var cache = await caches.open('probe-weights');
+        await cache.put(new Request('https://local/weights.gguf'),
+                        new Response(gguf.slice(0, 1024 * 1024)));
+        var hit = await cache.match('https://local/weights.gguf');
+        var got = hit ? (await hit.arrayBuffer()).byteLength : 0;
+        await caches.delete('probe-weights');
+        return got === 1024 * 1024;
+      } catch (err) {
+        return 'failed: ' + err.message;
+      }
+    });
+
+    // 5. Can a File be handed to a Worker without copying it? Structured cloning a File
+    //    should transfer the handle, not the bytes — if it copies, loading a 2.5 GB model
+    //    inside a worker doubles peak memory and blows the heap.
+    await Probe.check('file_transfers_to_worker', function () {
+      return new Promise(function (resolve) {
+        var src = [
+          'self.onmessage = async function (e) {',
+          '  const f = e.data;',
+          '  try {',
+          '    const head = await f.slice(0, 4).arrayBuffer();',
+          '    const dv = new DataView(head);',
+          '    const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));',
+          '    self.postMessage({ ok: magic === "GGUF", magic: magic, size: f.size });',
+          '  } catch (err) { self.postMessage({ ok: false, why: String(err.message) }); }',
+          '};'
+        ].join('\n');
+        var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        var w;
+        try { w = new Worker(url); }
+        catch (err) { resolve('Worker construction threw: ' + err.message); return; }
+        w.onmessage = function (ev) { w.terminate(); resolve(ev.data); };
+        w.onerror = function (err) { w.terminate(); resolve('worker error: ' + err.message); };
+        w.postMessage(gguf);
+        setTimeout(function () { resolve('worker timed out'); }, 10000);
+      });
+    });
+
+    Probe.finish();
+  });
+}());
+</script>

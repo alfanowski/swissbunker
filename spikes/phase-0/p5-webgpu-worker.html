@@ -1,0 +1,170 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P5</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>P5 — WebGPU and Workers under a null origin</h1>
+<pre id="probe-output"></pre>
+<script src="lib/probe.js"></script>
+<script>
+(async function () {
+  Probe.init('p5', 'WebGPU and Workers under a null origin');
+
+  // 1. Is the API even exposed? Under file:// this depends on whether the browser treats
+  //    a null origin as a secure context.
+  await Probe.check('webgpu_api_present', function () {
+    return typeof navigator.gpu !== 'undefined';
+  });
+
+  var device = null;
+
+  // 2. Adapter and device acquisition. The adapter's limits directly determine which model
+  //    tier from spec §8.1 this machine can run, so they are recorded in full.
+  await Probe.check('webgpu_device_acquired', async function () {
+    if (!navigator.gpu) { return false; }
+    var adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) { return 'requestAdapter returned null'; }
+    device = await adapter.requestDevice();
+    var limits = adapter.limits;
+    Probe.info('adapter', {
+      // adapter.info is the modern replacement for the removed requestAdapterInfo().
+      vendor: adapter.info ? adapter.info.vendor : 'unknown',
+      architecture: adapter.info ? adapter.info.architecture : 'unknown',
+      device: adapter.info ? adapter.info.device : 'unknown',
+      features: Array.from(adapter.features || [])
+    });
+    Probe.info('limits', {
+      maxBufferSize: limits.maxBufferSize,
+      maxBufferSizeGB: Math.round((limits.maxBufferSize || 0) / 1e9 * 100) / 100,
+      maxStorageBufferBindingSize: limits.maxStorageBufferBindingSize,
+      maxComputeWorkgroupStorageSize: limits.maxComputeWorkgroupStorageSize,
+      maxComputeInvocationsPerWorkgroup: limits.maxComputeInvocationsPerWorkgroup
+    });
+    // Constraint V4 says buffers cap around 2 GB. This is where that gets confirmed or
+    // refuted on real hardware, and it decides the top usable model tier.
+    Probe.info('tier_ceiling_hint',
+      (limits.maxBufferSize || 0) >= 2e9 ? 'T2 or higher plausible' : 'T1 ceiling likely');
+    return true;
+  });
+
+  // 3. Run an actual compute shader. An adapter that exists but cannot dispatch is worse
+  //    than no adapter, because the tiering logic would trust it.
+  await Probe.check('compute_shader_dispatch', async function () {
+    if (!device) { return false; }
+    var N = 1024;
+    var shader = device.createShaderModule({
+      code: [
+        '@group(0) @binding(0) var<storage, read_write> data: array<f32>;',
+        '@compute @workgroup_size(64)',
+        'fn main(@builtin(global_invocation_id) gid: vec3<u32>) {',
+        '  data[gid.x] = data[gid.x] * 2.0 + 1.0;',
+        '}'
+      ].join('\n')
+    });
+
+    var buffer = device.createBuffer({
+      size: N * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+    });
+    var input = new Float32Array(N);
+    for (var i = 0; i < N; i++) { input[i] = i; }
+    device.queue.writeBuffer(buffer, 0, input);
+
+    var pipeline = device.createComputePipeline({
+      layout: 'auto',
+      compute: { module: shader, entryPoint: 'main' }
+    });
+    var bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: buffer } }]
+    });
+
+    var encoder = device.createCommandEncoder();
+    var pass = encoder.beginComputePass();
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(N / 64);
+    pass.end();
+
+    var readback = device.createBuffer({
+      size: N * 4,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    encoder.copyBufferToBuffer(buffer, 0, readback, 0, N * 4);
+    device.queue.submit([encoder.finish()]);
+
+    await readback.mapAsync(GPUMapMode.READ);
+    var out = new Float32Array(readback.getMappedRange().slice(0));
+    readback.unmap();
+
+    // data[i] = i * 2 + 1, so index 100 must be exactly 201.
+    return out[100] === 201 ? true : 'expected 201 at index 100, got ' + out[100];
+  });
+
+  // 4. Allocate a 1 GB buffer — the smallest allocation a Tier 2 model needs, and the point
+  //    where an adapter's advertised limits often stop being true.
+  await Probe.check('one_gb_buffer_allocation', async function () {
+    if (!device) { return false; }
+    try {
+      var big = device.createBuffer({ size: 1024 * 1024 * 1024, usage: GPUBufferUsage.STORAGE });
+      big.destroy();
+      return true;
+    } catch (err) {
+      return 'allocation failed: ' + err.message;
+    }
+  });
+
+  // 5. Workers via Blob URL. A classic worker from file:// is blocked by the null origin,
+  //    so the Blob escape hatch is the only route — and index work cannot run on the main
+  //    thread without freezing the UI.
+  await Probe.check('blob_worker_runs', function () {
+    return new Promise(function (resolve) {
+      var src = 'self.onmessage = function (e) { self.postMessage(e.data * 2); };';
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      var w;
+      try { w = new Worker(url); }
+      catch (err) { resolve('Worker construction threw: ' + err.message); return; }
+      w.onmessage = function (e) { w.terminate(); resolve(e.data === 42); };
+      w.onerror = function (err) { w.terminate(); resolve('worker error: ' + err.message); };
+      w.postMessage(21);
+      setTimeout(function () { resolve('worker timed out'); }, 5000);
+    });
+  });
+
+  // 6. Can a Blob worker itself reach WebGPU? If not, inference is stuck on the main thread
+  //    and the UI must be designed around that.
+  await Probe.check('webgpu_inside_blob_worker', function () {
+    return new Promise(function (resolve) {
+      var src = [
+        'self.onmessage = async function () {',
+        '  if (typeof navigator.gpu === "undefined") { self.postMessage({ok:false, why:"no navigator.gpu"}); return; }',
+        '  try {',
+        '    const a = await navigator.gpu.requestAdapter();',
+        '    self.postMessage({ ok: !!a, why: a ? "adapter acquired" : "adapter null" });',
+        '  } catch (e) { self.postMessage({ ok:false, why: String(e.message) }); }',
+        '};'
+      ].join('\n');
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      var w;
+      try { w = new Worker(url); }
+      catch (err) { resolve('Worker construction threw: ' + err.message); return; }
+      w.onmessage = function (e) { w.terminate(); resolve(e.data.ok ? e.data : e.data.why); };
+      w.onerror = function (err) { w.terminate(); resolve('worker error: ' + err.message); };
+      w.postMessage('go');
+      setTimeout(function () { resolve('worker timed out'); }, 10000);
+    });
+  });
+
+  // 7. Confirm what the null origin costs: no cross-origin isolation means no
+  //    SharedArrayBuffer, hence no multi-threaded WASM on the CPU. Recorded as evidence
+  //    for constraint V2 rather than as a failure.
+  await Probe.check('sab_status_under_null_origin', function () {
+    return {
+      crossOriginIsolated: self.crossOriginIsolated,
+      sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+      note: 'absence here is expected under file:// and is why CPU inference stays single-threaded'
+    };
+  });
+
+  Probe.finish();
+}());
+</script>
