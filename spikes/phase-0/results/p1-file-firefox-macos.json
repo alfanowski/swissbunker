@@ -1,0 +1,65 @@
+{
+  "probe": "p1",
+  "title": "Code loading under a null origin",
+  "context": {
+    "origin": "null",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "classic_script_tag": {
+      "ok": true,
+      "detail": true
+    },
+    "dynamic_esm_import": {
+      "ok": false,
+      "detail": "error loading dynamically imported module: file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/vendor-probe.js"
+    },
+    "fetch_sibling_file": {
+      "ok": false,
+      "detail": "NetworkError when attempting to fetch resource."
+    },
+    "wasm_instantiate_inline": {
+      "ok": true,
+      "detail": true
+    },
+    "blob_url_script": {
+      "ok": true,
+      "detail": true
+    },
+    "localStorage_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "indexeddb_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "opfs_usable": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {},
+  "_provenance": {
+    "engine": "firefox",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none; security.fileuri.strict_origin_policy restored to true",
+    "complete": true
+  },
+  "_consoleErrors": [
+    "[JavaScript Error: \"Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/vendor-probe.js. (Reason: CORS request not http).\"]",
+    "[JavaScript Error: \"Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/probe.js. (Reason: CORS request not http).\"]"
+  ]
+}

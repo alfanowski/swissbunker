@@ -4,14 +4,14 @@
   "context": {
     "origin": "http://localhost:8391",
     "protocol": "http:",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "platform": "macOS",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "platform": "MacIntel",
     "isSecureContext": true,
     "crossOriginIsolated": false,
     "hasSharedArrayBuffer": false,
-    "hasWebGPU": true,
-    "deviceMemoryGB": 8,
-    "hardwareConcurrency": 10
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 8
   },
   "checks": {
     "classic_script_tag": {
@@ -43,23 +43,20 @@
       "detail": true
     },
     "opfs_usable": {
-      "ok": true,
-      "detail": true
+      "ok": false,
+      "detail": "The operation failed for an unknown transient reason (e.g. out of memory)."
     }
   },
   "measurements": {},
   "info": {},
   "_provenance": {
-    "engine": "chromium",
-    "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
+    "engine": "webkit",
+    "engineNote": "Playwright WebKit — shares Safari's engine, not its policy layer",
     "protocol": "http",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",
     "headless": false,
     "permissiveFlags": "none",
     "complete": true
-  },
-  "_consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 (File not found)"
-  ]
+  }
 }

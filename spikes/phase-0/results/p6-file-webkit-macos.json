@@ -1,0 +1,74 @@
+{
+  "probe": "p6",
+  "title": "Model weights from File objects",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 8
+  },
+  "checks": {
+    "weights_found": {
+      "ok": true,
+      "detail": true
+    },
+    "gguf_header_parsed": {
+      "ok": true,
+      "detail": true
+    },
+    "whole_file_in_memory": {
+      "ok": true,
+      "detail": true
+    },
+    "cache_api_accepts_file": {
+      "ok": true,
+      "detail": true
+    },
+    "file_transfers_to_worker": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "why": "The I/O read operation failed."
+      }
+    }
+  },
+  "measurements": {
+    "stream_512mb_ms": {
+      "runs": 5,
+      "p50": 86,
+      "p95": 145,
+      "min": 85,
+      "max": 145
+    }
+  },
+  "info": {
+    "weights": {
+      "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "bytes": 491400032,
+      "GB": 0.49
+    },
+    "gguf": {
+      "magic": "GGUF",
+      "version": 3
+    }
+  },
+  "_provenance": {
+    "engine": "webkit",
+    "engineNote": "Playwright WebKit — shares Safari's engine, not its policy layer",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  },
+  "_consoleErrors": [
+    "Cannot load blob:null/af18836b-250c-4745-a831-decc6ecb2fc7."
+  ]
+}

@@ -3,7 +3,8 @@
 **Versione:** 1.0
 **Data:** 2026-08-18
 **Autore:** Andrea "Alfanowski" Alfano
-**Stato:** Approvato per pianificazione implementativa
+**Stato:** Fase 0 completata — GO CON MODIFICHE
+**Evidenza:** [findings Fase 0](../reports/2026-08-19-phase-0-findings.md) · 48 record, 6 probe, 4 motori
 
 ---
 
@@ -101,8 +102,13 @@ installare, configurare o capire va rifiutata, anche a costo di prestazioni.
 - **V3 — File System Access API solo Chromium.** Mitigato: il bunker è read-only, quindi si
   usa `<input type="file" webkitdirectory>` (supporto universale) + `File.slice()` per il
   random access. La scrittura avviene solo in OPFS (sandbox) o via daemon.
-- **V4 — Limiti di memoria browser.** Heap WASM32 = 4 GB. `maxBufferSize` WebGPU
-  tipicamente 2 GB per buffer. Limita i modelli a ~4B parametri quantizzati.
+- **V4 — Limiti di memoria browser.** Heap WASM32 = 4 GB (**misurato**: limite heap JS
+  3760 MB su Apple M4). `maxBufferSize` WebGPU **varia per GPU e va rilevato a runtime, mai
+  assunto**: la stima iniziale di ~2 GB è stata smentita da una misura di **4.29 GB** su
+  Apple M4. Il tier di modello si decide dal valore letto, non da una tabella statica.
+- **V7 — OPFS non disponibile da `file://`.** Misurato: `opfs_usable` fallisce su Chromium,
+  Chrome e WebKit; passa solo su Firefox. Lo storage utente in modalità Portable usa
+  **IndexedDB**, che passa su tutti e quattro i motori.
 - **V5 — Budget di calcolo per la build.** Macchina di riferimento: **Apple M4 base, 16 GB
   RAM**. Nessun cluster, nessuna GPU discreta.
 - **V6 — Legalità.** Solo contenuti pubblico dominio o con licenza libera.
@@ -290,6 +296,14 @@ IVF fa invece due cose sequenziali e prevedibili: confronta la query con i centr
 RAM), poi legge **`nprobe` liste invertite contigue**. Poche letture grandi invece di
 centinaia piccole e seriali. È il pattern di accesso che un disco esterno ama.
 
+> **Confermato in Fase 0 con un margine di 39×.** Sugli stessi 5.6 MB, da un file di 12.88 GB
+> letto via `file://`: 1400 letture sparse da 4 KB costano 297.8 ms (p50), una singola
+> lettura contigua da 5.6 MB ne costa 7.6. Vedi
+> [findings Fase 0](../reports/2026-08-19-phase-0-findings.md) §3.1.
+>
+> Il lettore IVF è **sequenziale, non concorrente**: 32 letture parallele hanno battuto le
+> stesse 32 sequenziali di appena 1.23×, un guadagno che non ripaga la complessità.
+
 **Parametri:**
 - `nlist` = 8192 cluster (~3.600 vettori per cluster)
 - `nprobe` = 32 → ~117k candidati scansionati per query
@@ -313,6 +327,17 @@ Tantivy è più veloce a costruire, ma **non è leggibile dal browser**. SQLite 
 WASM con un VFS custom su `File.slice()` legge il database a pagine da 4 KB, esattamente come
 farebbe da filesystem locale. È il vincolo del Runtime a decidere il formato dell'indice, non
 le prestazioni della build.
+
+> **Attenzione, verificato in Fase 0: `sql.js` non è compilato con FTS5.** Una query FTS5
+> fallisce con `no such module: fts5` su tutti e quattro i motori. Serve un build che lo
+> includa — `@sqlite.org/sqlite-wasm` (ufficiale, FTS5 di serie, espone l'API VFS),
+> `wa-sqlite` (progettato per VFS custom) o `sql.js-fts5`. Rischio R10.
+>
+> **Il VFS è però realizzabile**, il che prima della misura non era scontato: SQLite pretende
+> letture *sincrone*, `File.slice()` è asincrono e `file://` nega `SharedArrayBuffer`, quindi
+> il solito ponte worker + `Atomics.wait` non esiste. Una XHR **sincrona** contro il Blob URL
+> di una porzione di file restituisce i byte corretti in **0.7 ms**, su tutti e quattro i
+> motori. Vedi [findings Fase 0](../reports/2026-08-19-phase-0-findings.md) §3.2.
 
 **Ottimizzazione di build:** l'indice FTS5 si costruisce sul disco interno veloce e si copia
 sul disco esterno alla fine. Scrivere un indice SQLite direttamente su exFAT via USB è
@@ -375,6 +400,12 @@ un interruttore "ricerca approfondita" invece di imporre l'attesa a tutti.
 
 Il sistema rileva memoria, presenza e classe di WebGPU, e sceglie il tier. Nessun modello
 viene mai caricato se non c'è la certezza che entri.
+
+> **Ritarata dopo la Fase 0.** `maxBufferSize` misurato su Apple M4 è **4.29 GB**, non i
+> ~2 GB assunti: il Tier 3 è raggiungibile dove questa tabella si fermava al Tier 2. I valori
+> qui sotto restano **stime di riferimento**; il tier effettivo si decide da `maxBufferSize` e
+> dal limite di heap letti a runtime. Serve ancora la taratura su GPU integrata Intel/AMD e
+> su GPU discreta.
 
 | Tier | Modello | Peso | Requisito | Throughput atteso |
 |---|---|---|---|---|
@@ -554,7 +585,10 @@ sensazione di non sapere se si è fatto giusto.
   beneficio.
 - **Area personale cifrata lato client.** AES-GCM 256 via WebCrypto, chiave derivata da
   passphrase con Argon2id. **La cifratura la fa il browser**, quindi resta compatibile con il
-  vincolo "zero eseguibili" del Runtime.
+  vincolo "zero eseguibili" del Runtime. WebCrypto è disponibile perché `file://` risulta
+  `isSecureContext: true` su tutti i motori testati.
+- **Lo storage cifrato usa IndexedDB, non OPFS** (vincolo V7): OPFS è negato da `file://` su
+  Chromium, Chrome e WebKit, mentre IndexedDB passa su tutti e quattro.
 - **Nessuna telemetria.** Mai. Il daemon non apre connessioni in uscita se non per download
   espressamente richiesti.
 - **Binding su loopback.** Il daemon ascolta solo su `127.0.0.1`, mai su `0.0.0.0`.
@@ -608,7 +642,7 @@ Restano ~575 GB liberi su 1 TB. Upgrade successivi possibili: Wikipedia EN `all_
 | Livello | Scelta | Perché |
 |---|---|---|
 | Daemon | **Rust** (axum, tokio, rusqlite, ort) | Binario statico senza runtime; unica lingua che dà un eseguibile copiabile su exFAT che parte ovunque |
-| Full-text | **SQLite FTS5** | L'unico indice testuale serio leggibile dal browser via WASM |
+| Full-text | **SQLite FTS5** via `@sqlite.org/sqlite-wasm` o `wa-sqlite` | L'unico indice testuale serio leggibile dal browser via WASM. **Non `sql.js`**: quel build non include FTS5 (R10) |
 | Vettoriale | **IVF custom** (formato proprio) | Nessuna libreria esistente ha un formato pensato per il range-read da browser |
 | Embedder | **multilingual-e5-small** ONNX | 384 dim, multilingue IT/EN, ~2k chunk/s su M4 |
 | Reranker | **jina-reranker-v2-base-multilingual** ONNX q8 | Buon rapporto qualità/peso per l'esecuzione in browser |
@@ -672,17 +706,21 @@ Cifratura, update differenziali, matrice cross-browser, firma dei binari, docume
 
 ## 14. Registro rischi
 
-| ID | Rischio | Impatto | Prob. | Mitigazione / Piano B |
-|---|---|---|---|---|
-| **R1** | `file://` blocca troppe API e la modalità Portable è irrealizzabile | **Critico** | Media | Fase 0 lo accerta subito. **Piano B:** PWA installabile una tantum + service worker offline. **Piano C:** avvio via daemon dal disco anche in mobilità (rinuncia parziale al "zero eseguibili") |
-| **R2** | WebLLM non caricabile da `FileList` senza fork sostanziale | Alto | Media | Prototipare in Fase 0. Alternativa: `wllama` (llama.cpp WASM), più semplice da adattare ma più lento |
-| **R3** | Corruzione exFAT su file da decine di GB / scritture lunghe | Alto | Bassa | Journal transazionale, checksum per corpus, scrittura in file temporanei con rename atomico |
-| **R4** | Throughput embedding sull'M4 sotto le attese | Medio | Media | Ridurre la copertura densa (solo incipit, niente libri interi). BM25 copre comunque il 100% |
-| **R5** | Reranker troppo lento in browser su hardware debole | Basso | Alta | Già previsto come interruttore opzionale, non come passaggio obbligato |
-| **R6** | `webkitdirectory` fallisce con file > 4 GB su qualche browser | Medio | Media | Verificato in Fase 0. Fallback: sharding dei corpora in file da 2 GB |
-| **R7** | Limite `maxBufferSize` WebGPU inferiore al previsto su GPU vecchie | Medio | Media | Tiering già progettato per degradare; Tier 0 è il pavimento garantito |
-| **R8** | Banda internet insufficiente rende la build impraticabile | Medio | Bassa | Il wizard misura la banda e avvisa **prima**; supporto torrent; possibilità di partire da un preset piccolo |
-| **R9** | Mirror Kiwix lenti o irraggiungibili | Medio | Media | Mirror multipli con fallback automatico, torrent come sorgente primaria |
+| ID | Rischio | Impatto | Prob. | Evidenza | Mitigazione / Piano B |
+|---|---|---|---|---|---|
+| **R1** | `file://` blocca troppe API e la modalità Portable è irrealizzabile | Critico | **Neutralizzato** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — `webkitdirectory` PASS su 4/4 motori | Residuo su ESM/fetch: tutto bundlato IIFE, wasm inlineato in base64 |
+| **R2** | WebLLM non caricabile da `FileList` senza fork sostanziale | Alto | **Bassa** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — `cache_api_accepts_file` e `file_transfers_to_worker` PASS su 4/4 | Pre-popolare la Cache API per soddisfare il loader della libreria |
+| **R3** | Corruzione exFAT su file da decine di GB / scritture lunghe | Alto | Bassa | Non misurato | Journal transazionale, checksum per corpus, rename atomico |
+| **R4** | Throughput embedding sull'M4 sotto le attese | Medio | Media | Non misurato | Ridurre la copertura densa; BM25 copre comunque il 100% |
+| **R5** | Reranker troppo lento in browser su hardware debole | Basso | Alta | Non misurato | Già previsto come interruttore opzionale |
+| **R6** | `webkitdirectory` fallisce con file > 4 GB | Medio | **Neutralizzato** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — file da 12.88 GB letto in coda su 4/4 | — |
+| **R7** | Limite `maxBufferSize` WebGPU inferiore al previsto | Medio | **Rovesciato** | [F0 §3.3](../reports/2026-08-19-phase-0-findings.md) — 4.29 GB su Apple M4, non ~2 GB | Il vincolo era troppo conservativo; tier deciso a runtime |
+| **R8** | Banda internet insufficiente rende la build impraticabile | Medio | Bassa | Non misurato | Il wizard misura la banda e avvisa prima; supporto torrent |
+| **R9** | Mirror Kiwix lenti o irraggiungibili | Medio | Media | Il download ZIM di prova è fallito in Fase 0 (URL con suffisso data) | Mirror multipli, torrent primario, cataloghi versionati |
+| **R10** | **`sql.js` non include FTS5** | **Alto** | **Certa** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — `no such module: fts5` su 4/4 | Passare a `@sqlite.org/sqlite-wasm`, `wa-sqlite` o `sql.js-fts5`. Da chiudere prima della Fase 1 |
+| **R11** | **OPFS non disponibile da `file://`** su Chromium e WebKit | Medio | **Certa** | [F0 §2](../reports/2026-08-19-phase-0-findings.md) | Storage utente su IndexedDB (PASS su 4/4). Vincolo V7 |
+| **R12** | **WebGPU non verificato su Safari e Firefox reali** | Medio | Aperta | Le build Playwright dei due motori non spediscono WebGPU | Verifica manuale obbligatoria prima della Fase 4 |
+| **R13** | Il lettore pigro non ha politica di eviction | Basso | **Certa** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — 795 MB di cache contro soglia 500 MB | LRU e chunk più piccolo di 1 MB: l'amplificazione a 39.7 MB/query è dominata dal chunk |
 
 ---
 

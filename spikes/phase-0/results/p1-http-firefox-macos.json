@@ -4,13 +4,13 @@
   "context": {
     "origin": "http://localhost:8391",
     "protocol": "http:",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "platform": "macOS",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+    "platform": "MacIntel",
     "isSecureContext": true,
     "crossOriginIsolated": false,
     "hasSharedArrayBuffer": false,
-    "hasWebGPU": true,
-    "deviceMemoryGB": 8,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
     "hardwareConcurrency": 10
   },
   "checks": {
@@ -50,16 +50,12 @@
   "measurements": {},
   "info": {},
   "_provenance": {
-    "engine": "chromium",
-    "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
+    "engine": "firefox",
     "protocol": "http",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",
     "headless": false,
-    "permissiveFlags": "none",
+    "permissiveFlags": "none; security.fileuri.strict_origin_policy restored to true",
     "complete": true
-  },
-  "_consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 (File not found)"
-  ]
+  }
 }

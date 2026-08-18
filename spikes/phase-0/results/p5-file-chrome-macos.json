@@ -2,15 +2,15 @@
   "probe": "p5",
   "title": "WebGPU and Workers under a null origin",
   "context": {
-    "origin": "http://localhost:8391",
-    "protocol": "http:",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
     "platform": "macOS",
     "isSecureContext": true,
     "crossOriginIsolated": false,
     "hasSharedArrayBuffer": false,
     "hasWebGPU": true,
-    "deviceMemoryGB": 8,
+    "deviceMemoryGB": 16,
     "hardwareConcurrency": 10
   },
   "checks": {
@@ -54,26 +54,35 @@
   "info": {
     "adapter": {
       "vendor": "apple",
-      "architecture": "common-3",
+      "architecture": "metal-3",
       "device": "",
       "features": [
         "depth32float-stencil8",
         "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
         "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "texture-compression-astc-sliced-3d",
+        "float32-blendable",
         "texture-compression-astc",
         "texture-compression-etc2",
         "depth-clip-control",
-        "texture-compression-bc",
-        "dual-source-blending",
+        "texture-compression-bc-sliced-3d",
         "clip-distances",
+        "texture-formats-tier2",
         "timestamp-query",
         "shader-f16",
-        "float32-filterable",
-        "indirect-first-instance"
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
       ]
     },
     "limits": {
-      "maxBufferSize": 4294967296,
+      "maxBufferSize": 4294967292,
       "maxBufferSizeGB": 4.29,
       "maxStorageBufferBindingSize": 4294967292,
       "maxComputeWorkgroupStorageSize": 32768,
@@ -82,16 +91,12 @@
     "tier_ceiling_hint": "T2 or higher plausible"
   },
   "_provenance": {
-    "engine": "chromium",
-    "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
-    "protocol": "http",
+    "engine": "chrome",
+    "protocol": "file",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",
     "headless": false,
     "permissiveFlags": "none",
     "complete": true
-  },
-  "_consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 (File not found)"
-  ]
+  }
 }

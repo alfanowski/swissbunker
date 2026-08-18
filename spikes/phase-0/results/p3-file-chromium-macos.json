@@ -1,0 +1,91 @@
+{
+  "probe": "p3",
+  "title": "Range-read correctness and latency",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "correctness_at_key_offsets": {
+      "ok": true,
+      "detail": true
+    },
+    "correctness_random_200": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {
+    "random_4kb_read_ms": {
+      "runs": 200,
+      "p50": 0.2,
+      "p95": 0.3,
+      "min": 0.1,
+      "max": 0.6
+    },
+    "contiguous_8mb_read_ms": {
+      "runs": 20,
+      "p50": 7.7,
+      "p95": 10.2,
+      "min": 7.2,
+      "max": 10.2
+    },
+    "scattered_1400x4kb_ms": {
+      "runs": 5,
+      "p50": 297.8,
+      "p95": 306.6,
+      "min": 294.3,
+      "max": 306.6
+    },
+    "contiguous_5_6mb_ms": {
+      "runs": 20,
+      "p50": 7.6,
+      "p95": 39,
+      "min": 1.4,
+      "max": 39
+    },
+    "parallel_32x256kb_ms": {
+      "runs": 20,
+      "p50": 22.7,
+      "p95": 24.2,
+      "min": 21.2,
+      "max": 24.2
+    },
+    "sequential_32x256kb_ms": {
+      "runs": 20,
+      "p50": 27.9,
+      "p95": 39.7,
+      "min": 25.2,
+      "max": 39.7
+    }
+  },
+  "info": {
+    "file": {
+      "name": "large-verifiable.bin",
+      "bytes": 12884901888,
+      "GB": 12.88
+    }
+  },
+  "_provenance": {
+    "engine": "chromium",
+    "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  }
+}

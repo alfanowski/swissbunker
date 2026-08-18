@@ -147,7 +147,12 @@
       var w;
       try { w = new Worker(url); }
       catch (err) { resolve('Worker construction threw: ' + err.message); return; }
-      w.onmessage = function (e) { w.terminate(); resolve(e.data.ok ? e.data : e.data.why); };
+      // Return false — not the reason string — when the worker reports failure, or
+      // Probe.check would score a truthy string as a pass.
+      w.onmessage = function (e) {
+        w.terminate();
+        resolve(e.data && e.data.ok ? e.data : false);
+      };
       w.onerror = function (err) { w.terminate(); resolve('worker error: ' + err.message); };
       w.postMessage('go');
       setTimeout(function () { resolve('worker timed out'); }, 10000);

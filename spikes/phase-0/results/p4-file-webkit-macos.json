@@ -1,0 +1,99 @@
+{
+  "probe": "p4",
+  "title": "SQLite over range reads",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 8
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "sqlite_header_valid": {
+      "ok": true,
+      "detail": true
+    },
+    "header_fields_sane": {
+      "ok": true,
+      "detail": true
+    },
+    "cache_stayed_bounded": {
+      "ok": false,
+      "detail": false
+    },
+    "heap_headroom": {
+      "ok": true,
+      "detail": "performance.memory unavailable in this browser"
+    },
+    "fts5_engine_works": {
+      "ok": false,
+      "detail": "no such module: fts5"
+    },
+    "sqljs_exposes_lazy_file": {
+      "ok": true,
+      "detail": {
+        "createLazyFile": "undefined",
+        "createPreloadedFile": "undefined",
+        "registerDevice": "undefined",
+        "mount": "undefined",
+        "note": "absent means Phase 1 needs a custom SQLite WASM build with a VFS"
+      }
+    },
+    "blob_url_sync_range_read": {
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "bytesReturned": 4096,
+        "correctLength": true,
+        "syncReadMs": 1
+      }
+    }
+  },
+  "measurements": {
+    "simulated_fts_query_ms": {
+      "runs": 20,
+      "p50": 64,
+      "p95": 74,
+      "min": 56,
+      "max": 74
+    }
+  },
+  "info": {
+    "database": {
+      "bytes": 6221488128,
+      "GB": 6.22
+    },
+    "sqlite_header": {
+      "pageSize": 4096,
+      "pageCount": 1518918,
+      "impliedBytes": 6221488128
+    },
+    "reader_stats_after_simulation": {
+      "hits": 802,
+      "misses": 0,
+      "bytesRead": 795869184,
+      "sliceCalls": 759
+    },
+    "bytes_per_simulated_query": 39741030,
+    "cache_bytes": 795869184
+  },
+  "_provenance": {
+    "engine": "webkit",
+    "engineNote": "Playwright WebKit — shares Safari's engine, not its policy layer",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  }
+}

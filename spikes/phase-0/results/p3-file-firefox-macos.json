@@ -1,0 +1,90 @@
+{
+  "probe": "p3",
+  "title": "Range-read correctness and latency",
+  "context": {
+    "origin": "null",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "correctness_at_key_offsets": {
+      "ok": true,
+      "detail": true
+    },
+    "correctness_random_200": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {
+    "random_4kb_read_ms": {
+      "runs": 200,
+      "p50": 0,
+      "p95": 1,
+      "min": 0,
+      "max": 3
+    },
+    "contiguous_8mb_read_ms": {
+      "runs": 20,
+      "p50": 11,
+      "p95": 12,
+      "min": 7,
+      "max": 12
+    },
+    "scattered_1400x4kb_ms": {
+      "runs": 5,
+      "p50": 211,
+      "p95": 214,
+      "min": 207,
+      "max": 214
+    },
+    "contiguous_5_6mb_ms": {
+      "runs": 20,
+      "p50": 7,
+      "p95": 8,
+      "min": 3,
+      "max": 8
+    },
+    "parallel_32x256kb_ms": {
+      "runs": 20,
+      "p50": 30,
+      "p95": 34,
+      "min": 24,
+      "max": 34
+    },
+    "sequential_32x256kb_ms": {
+      "runs": 20,
+      "p50": 30,
+      "p95": 35,
+      "min": 26,
+      "max": 35
+    }
+  },
+  "info": {
+    "file": {
+      "name": "large-verifiable.bin",
+      "bytes": 12884901888,
+      "GB": 12.88
+    }
+  },
+  "_provenance": {
+    "engine": "firefox",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none; security.fileuri.strict_origin_policy restored to true",
+    "complete": true
+  }
+}

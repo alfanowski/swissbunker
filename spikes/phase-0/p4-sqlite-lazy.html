@@ -8,9 +8,10 @@
 <pre id="probe-output"></pre>
 <script src="lib/probe.js"></script>
 <script src="lib/file-vfs.js"></script>
-<!-- Built by tools/build-vendor.sh. Absent until then, which check 6 reports rather than
-     crashes on: the first five checks are worth running without it. -->
-<script src="vendor/sql-wasm.iife.js" onerror="console.warn('vendor bundle not built yet')"></script>
+<!-- Both built by tools/build-vendor.sh. Absent until then, which check 6 reports rather
+     than crashes on: the first five checks are worth running without them. -->
+<script src="vendor/sql-wasm.js" onerror="console.warn('sql.js not vendored yet')"></script>
+<script src="vendor/sql-wasm-binary.js" onerror="console.warn('wasm binary not inlined yet')"></script>
 <script>
 (function () {
   Probe.init('p4', 'SQLite over range reads');
@@ -91,33 +92,82 @@
       };
     });
 
-    // 6. A real FTS5 query against the planted needle. The fixture put the token
-    //    "xyzzyneedlemarker" in exactly one row out of two million, so the correct answer
-    //    is known in advance: one row, titled "Document 1337000". A different answer means
-    //    the lazy read path returns wrong bytes — the risk this probe exists to rule out.
-    await Probe.check('real_fts5_query', async function () {
-      if (typeof SqlJs === 'undefined') {
-        return 'vendor bundle not built — run tools/build-vendor.sh, then reload';
+    // 6. Does FTS5 actually work inside WASM? The small companion database fits in memory,
+    //    so this isolates the query engine from the lazy-reading question. The fixture
+    //    planted "xyzzyneedlemarker" in exactly one row, titled "Document 13370", so the
+    //    correct answer is known in advance rather than merely plausible.
+    await Probe.check('fts5_engine_works', async function () {
+      if (typeof initSqlJs !== 'function') {
+        return 'sql.js not vendored — run tools/build-vendor.sh, then reload';
       }
-      // esbuild's --global-name may expose the init function directly or under .default,
-      // depending on how sql.js's UMD wrapper is interpreted. Accept both.
-      var initSqlJs = (typeof SqlJs === 'function') ? SqlJs : SqlJs.default;
-      if (typeof initSqlJs !== 'function') { return 'SqlJs global is not callable'; }
-      var SQL = await initSqlJs({ locateFile: function (f) { return f; } });
-      var FS = SQL.FS;
-      FS.createLazyFile('/', 'fts.sqlite', {
-        length: db.size,
-        read: function (offset, length) {
-          var bytes = reader.readSync(offset, length);
-          if (!bytes) { throw new Error('lazy read miss at offset ' + offset); }
-          return bytes;
-        }
-      }, true, false);
-      var handle = new SQL.Database('/fts.sqlite', { filename: true });
+      if (!window.SQL_WASM_BINARY) { return 'wasm binary not inlined'; }
+      var small = files.filter(function (f) { return f.name === 'fts-small.sqlite'; })[0];
+      if (!small) { return 'fts-small.sqlite not found in the selected directory'; }
+
+      // Passing wasmBinary skips Emscripten's fetch of the .wasm entirely, which is the
+      // one part of sql.js init that a null origin would block.
+      var SQL = await initSqlJs({ wasmBinary: window.SQL_WASM_BINARY });
+      var t0 = performance.now();
+      var bytes = new Uint8Array(await small.arrayBuffer());
+      var loadMs = performance.now() - t0;
+      var handle = new SQL.Database(bytes);
+      var t1 = performance.now();
       var rows = handle.exec("SELECT title FROM docs WHERE docs MATCH 'xyzzyneedlemarker'");
+      var queryMs = performance.now() - t1;
       handle.close();
+      Probe.info('small_db', { bytes: small.size, loadMs: Math.round(loadMs),
+                               queryMs: Math.round(queryMs * 100) / 100 });
       if (!rows.length || !rows[0].values.length) { return 'needle not found'; }
-      return { matched: rows[0].values.length, title: rows[0].values[0][0] };
+      return { title: rows[0].values[0][0], expected: 'Document 13370' };
+    });
+
+    // 7. Does this sql.js build expose Emscripten's lazy-file support at all?
+    //    The design assumed it did. Recording the answer either way matters more than the
+    //    answer itself: if it is absent, Phase 1 needs a custom SQLite WASM build with a
+    //    real VFS, which is a materially different amount of work.
+    await Probe.check('sqljs_exposes_lazy_file', async function () {
+      if (typeof initSqlJs !== 'function') { return 'sql.js not vendored'; }
+      var SQL = await initSqlJs({ wasmBinary: window.SQL_WASM_BINARY });
+      return {
+        createLazyFile: typeof (SQL.FS && SQL.FS.createLazyFile),
+        createPreloadedFile: typeof (SQL.FS && SQL.FS.createPreloadedFile),
+        registerDevice: typeof (SQL.FS && SQL.FS.registerDevice),
+        mount: typeof (SQL.FS && SQL.FS.mount),
+        note: 'absent means Phase 1 needs a custom SQLite WASM build with a VFS'
+      };
+    });
+
+    // 8. Can a Blob URL serve HTTP Range requests, synchronously?
+    //    This is the pivotal question for Phase 1. SQLite's VFS demands SYNCHRONOUS reads,
+    //    File.slice() is asynchronous, and a null origin denies SharedArrayBuffer — so the
+    //    usual worker-plus-Atomics.wait bridge is unavailable. A synchronous XHR against a
+    //    Blob URL of a file slice is the only remaining route to a blocking read, and
+    //    whether it works decides how the search engine can be built at all.
+    await Probe.check('blob_url_sync_range_read', function () {
+      try {
+        // Slice first, then make a Blob URL of just that range: this sidesteps the
+        // question of whether Blob URLs honour a Range header, which they generally do not.
+        var slice = db.slice(1000000, 1000000 + 4096);
+        var url = URL.createObjectURL(slice);
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, false);   // synchronous — the whole point of the check
+        // responseType is forbidden on synchronous XHR in a window context, so fall back to
+        // the classic binary-through-text trick Emscripten itself uses.
+        xhr.overrideMimeType('text/plain; charset=x-user-defined');
+        var t0 = performance.now();
+        xhr.send(null);
+        var elapsed = performance.now() - t0;
+        URL.revokeObjectURL(url);
+        var len = xhr.responseText ? xhr.responseText.length : 0;
+        return {
+          status: xhr.status,
+          bytesReturned: len,
+          correctLength: len === 4096,
+          syncReadMs: Math.round(elapsed * 100) / 100
+        };
+      } catch (err) {
+        return 'sync XHR on a Blob URL failed: ' + err.message;
+      }
     });
 
     Probe.finish();

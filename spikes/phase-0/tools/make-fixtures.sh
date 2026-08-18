@@ -69,7 +69,35 @@ con.commit()
 con.close()
 PY
 
+echo "==> Generating a 121 MB companion database that fits in memory"
+# The big database and this one carry the same schema and the same planted needle. Having
+# both separates two questions that would otherwise be conflated: "does FTS5 work inside
+# WASM?" and "can a multi-gigabyte file be read lazily?" A failure then points at one of
+# them instead of both.
+python3 - "$MOUNT/fts-small.sqlite" <<'PY2'
+import sqlite3, sys, random, string
+con = sqlite3.connect(sys.argv[1])
+con.execute("PRAGMA journal_mode=OFF"); con.execute("PRAGMA synchronous=OFF")
+con.execute("PRAGMA page_size=4096")
+con.execute("CREATE VIRTUAL TABLE docs USING fts5(title, body)")
+words = [''.join(random.choices(string.ascii_lowercase, k=random.randint(3, 11)))
+         for _ in range(5000)]
+rows = []
+for i in range(40000):
+    body = ' '.join(random.choices(words, k=180))
+    if i == 13370:
+        body += ' xyzzyneedlemarker'
+    rows.append((f'Document {i}', body))
+con.executemany("INSERT INTO docs(title, body) VALUES (?, ?)", rows)
+con.commit()
+con.execute("INSERT INTO docs(docs) VALUES('optimize')")
+con.commit()
+con.close()
+PY2
+
 echo "==> Fetching a small real ZIM for format realism"
+# Kiwix filenames carry a date suffix that changes monthly, so this URL rots. It is
+# optional: no probe depends on the ZIM, it is only there for format realism.
 curl -fL --retry 3 -o "$MOUNT/wikimed.zim" \
   "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_nopic.zim" \
   || echo "    WARNING: ZIM download failed — the other probes can still run"

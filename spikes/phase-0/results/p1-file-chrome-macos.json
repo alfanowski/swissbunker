@@ -1,0 +1,67 @@
+{
+  "probe": "p1",
+  "title": "Code loading under a null origin",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 16,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "classic_script_tag": {
+      "ok": true,
+      "detail": true
+    },
+    "dynamic_esm_import": {
+      "ok": false,
+      "detail": "Failed to fetch dynamically imported module: file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/vendor-probe.js"
+    },
+    "fetch_sibling_file": {
+      "ok": false,
+      "detail": "Failed to fetch"
+    },
+    "wasm_instantiate_inline": {
+      "ok": true,
+      "detail": true
+    },
+    "blob_url_script": {
+      "ok": true,
+      "detail": true
+    },
+    "localStorage_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "indexeddb_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "opfs_usable": {
+      "ok": false,
+      "detail": "It was determined that certain files are unsafe for access within a Web application, or that too many calls are being made on file resources."
+    }
+  },
+  "measurements": {},
+  "info": {},
+  "_provenance": {
+    "engine": "chrome",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  },
+  "_consoleErrors": [
+    "Access to script at 'file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/vendor-probe.js' from origin 'null' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: chrome, chrome-extension, chrome-untrusted, data, http, https, isolated-app.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to fetch at 'file:///Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/probe.js' from origin 'null' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: chrome, chrome-extension, chrome-untrusted, data, http, https, isolated-app.",
+    "Failed to load resource: net::ERR_FAILED"
+  ]
+}

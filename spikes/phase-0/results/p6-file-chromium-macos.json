@@ -1,9 +1,9 @@
 {
-  "probe": "p1",
-  "title": "Code loading under a null origin",
+  "probe": "p6",
+  "title": "Model weights from File objects",
   "context": {
-    "origin": "http://localhost:8391",
-    "protocol": "http:",
+    "origin": "file://",
+    "protocol": "file:",
     "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "platform": "macOS",
     "isSecureContext": true,
@@ -14,52 +14,59 @@
     "hardwareConcurrency": 10
   },
   "checks": {
-    "classic_script_tag": {
+    "weights_found": {
       "ok": true,
       "detail": true
     },
-    "dynamic_esm_import": {
+    "gguf_header_parsed": {
       "ok": true,
       "detail": true
     },
-    "fetch_sibling_file": {
+    "whole_file_in_memory": {
       "ok": true,
       "detail": true
     },
-    "wasm_instantiate_inline": {
+    "cache_api_accepts_file": {
       "ok": true,
       "detail": true
     },
-    "blob_url_script": {
+    "file_transfers_to_worker": {
       "ok": true,
-      "detail": true
-    },
-    "localStorage_usable": {
-      "ok": true,
-      "detail": true
-    },
-    "indexeddb_usable": {
-      "ok": true,
-      "detail": true
-    },
-    "opfs_usable": {
-      "ok": true,
-      "detail": true
+      "detail": {
+        "ok": true,
+        "magic": "GGUF",
+        "size": 491400032
+      }
     }
   },
-  "measurements": {},
-  "info": {},
+  "measurements": {
+    "stream_512mb_ms": {
+      "runs": 5,
+      "p50": 112.5,
+      "p95": 169.5,
+      "min": 101.3,
+      "max": 169.5
+    }
+  },
+  "info": {
+    "weights": {
+      "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "bytes": 491400032,
+      "GB": 0.49
+    },
+    "gguf": {
+      "magic": "GGUF",
+      "version": 3
+    }
+  },
   "_provenance": {
     "engine": "chromium",
     "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
-    "protocol": "http",
+    "protocol": "file",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",
     "headless": false,
     "permissiveFlags": "none",
     "complete": true
-  },
-  "_consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 (File not found)"
-  ]
+  }
 }

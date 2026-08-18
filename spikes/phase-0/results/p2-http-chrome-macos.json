@@ -1,57 +1,61 @@
 {
-  "probe": "p1",
-  "title": "Code loading under a null origin",
+  "probe": "p2",
+  "title": "Directory enumeration under a null origin",
   "context": {
     "origin": "http://localhost:8391",
     "protocol": "http:",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
     "platform": "macOS",
     "isSecureContext": true,
     "crossOriginIsolated": false,
     "hasSharedArrayBuffer": false,
     "hasWebGPU": true,
-    "deviceMemoryGB": 8,
+    "deviceMemoryGB": 16,
     "hardwareConcurrency": 10
   },
   "checks": {
-    "classic_script_tag": {
+    "fsa_api_present": {
       "ok": true,
       "detail": true
     },
-    "dynamic_esm_import": {
+    "webkitdirectory_supported": {
       "ok": true,
       "detail": true
     },
-    "fetch_sibling_file": {
+    "datatransfer_items_present": {
       "ok": true,
       "detail": true
     },
-    "wasm_instantiate_inline": {
+    "webkitdirectory_returned_files": {
       "ok": true,
       "detail": true
     },
-    "blob_url_script": {
+    "webkitdirectory_file_readable": {
       "ok": true,
       "detail": true
     },
-    "localStorage_usable": {
-      "ok": true,
-      "detail": true
-    },
-    "indexeddb_usable": {
-      "ok": true,
-      "detail": true
-    },
-    "opfs_usable": {
+    "large_file_tail_readable": {
       "ok": true,
       "detail": true
     }
   },
   "measurements": {},
-  "info": {},
+  "info": {
+    "webkitdirectory_enumeration_ms": 0,
+    "webkitdirectory_summary": {
+      "count": 7,
+      "totalBytes": 19233591332,
+      "totalGB": 19.23,
+      "largestFile": {
+        "name": "large-verifiable.bin",
+        "bytes": 12884901888,
+        "GB": 12.88
+      },
+      "largestOver4GB": true
+    }
+  },
   "_provenance": {
-    "engine": "chromium",
-    "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
+    "engine": "chrome",
     "protocol": "http",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",

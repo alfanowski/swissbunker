@@ -5,7 +5,7 @@
 **A portable, offline knowledge bunker on a single disk.**
 Plug it into any computer. No installation. No admin rights. No internet.
 
-`Status: design phase` · `License: proprietary` · `Runtime: browser + WebGPU`
+`Status: phase 0 complete — GO with changes` · `License: proprietary` · `Runtime: browser + WebGPU`
 
 </div>
 
@@ -91,8 +91,20 @@ supported.
 
 ## Status
 
-Design approved, implementation not started. Phase 0 is a go/no-go feasibility spike on
-browser platform constraints — see §13 and risk R1 of the specification.
+**Phase 0 complete: GO with changes.** The feasibility spike ran six probes across four
+engines in both `file://` and `http://` conditions — 48 records, all committed.
+
+The Portable runtime is viable: `webkitdirectory` returns usable `File` objects on every
+engine under `file://`, a 12.88 GB file reads correctly at any offset, and synchronous
+blocking reads — the worst theoretical blocker — complete in 0.7 ms. IVF over HNSW is
+confirmed by a **39× margin**.
+
+Three assumptions were wrong and the spec has been corrected: `sql.js` ships without FTS5,
+OPFS is denied under `file://` on Chromium and WebKit, and WebGPU's `maxBufferSize` is 4.29 GB
+rather than the ~2 GB assumed.
+
+See the [Phase 0 findings](docs/reports/2026-08-19-phase-0-findings.md), including a full
+account of what the spike did **not** prove.
 
 ## License
 

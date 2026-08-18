@@ -1,0 +1,68 @@
+{
+  "probe": "p1",
+  "title": "Code loading under a null origin",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 8
+  },
+  "checks": {
+    "classic_script_tag": {
+      "ok": true,
+      "detail": true
+    },
+    "dynamic_esm_import": {
+      "ok": false,
+      "detail": "Cross-origin script load denied by Cross-Origin Resource Sharing policy."
+    },
+    "fetch_sibling_file": {
+      "ok": false,
+      "detail": "Load failed"
+    },
+    "wasm_instantiate_inline": {
+      "ok": true,
+      "detail": true
+    },
+    "blob_url_script": {
+      "ok": true,
+      "detail": true
+    },
+    "localStorage_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "indexeddb_usable": {
+      "ok": true,
+      "detail": true
+    },
+    "opfs_usable": {
+      "ok": false,
+      "detail": "The operation failed for an unknown transient reason (e.g. out of memory)."
+    }
+  },
+  "measurements": {},
+  "info": {},
+  "_provenance": {
+    "engine": "webkit",
+    "engineNote": "Playwright WebKit — shares Safari's engine, not its policy layer",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  },
+  "_consoleErrors": [
+    "Origin null is not allowed by Access-Control-Allow-Origin. Status code: 0",
+    "Failed to load resource: Origin null is not allowed by Access-Control-Allow-Origin. Status code: 0",
+    "Cross origin requests are only supported for HTTP.",
+    "pageerror: //Users/alfanowski/Desktop/SwissBunker/spikes/phase-0/lib/probe.js due to access control checks."
+  ]
+}

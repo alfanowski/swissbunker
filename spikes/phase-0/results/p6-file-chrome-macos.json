@@ -1,0 +1,71 @@
+{
+  "probe": "p6",
+  "title": "Model weights from File objects",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 16,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "weights_found": {
+      "ok": true,
+      "detail": true
+    },
+    "gguf_header_parsed": {
+      "ok": true,
+      "detail": true
+    },
+    "whole_file_in_memory": {
+      "ok": true,
+      "detail": true
+    },
+    "cache_api_accepts_file": {
+      "ok": true,
+      "detail": true
+    },
+    "file_transfers_to_worker": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "magic": "GGUF",
+        "size": 491400032
+      }
+    }
+  },
+  "measurements": {
+    "stream_512mb_ms": {
+      "runs": 5,
+      "p50": 163.3,
+      "p95": 177.3,
+      "min": 115.8,
+      "max": 177.3
+    }
+  },
+  "info": {
+    "weights": {
+      "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "bytes": 491400032,
+      "GB": 0.49
+    },
+    "gguf": {
+      "magic": "GGUF",
+      "version": 3
+    }
+  },
+  "_provenance": {
+    "engine": "chrome",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  }
+}

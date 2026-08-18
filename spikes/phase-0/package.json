@@ -1,0 +1,20 @@
+{
+  "name": "phase-0",
+  "version": "1.0.0",
+  "description": "This directory answers one question: **can the Portable runtime exist?**",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.49.1",
+    "sql.js": "^1.11.0"
+  }
+}

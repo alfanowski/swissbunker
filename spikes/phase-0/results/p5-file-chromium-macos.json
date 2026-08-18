@@ -2,8 +2,8 @@
   "probe": "p5",
   "title": "WebGPU and Workers under a null origin",
   "context": {
-    "origin": "http://localhost:8391",
-    "protocol": "http:",
+    "origin": "file://",
+    "protocol": "file:",
     "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "platform": "macOS",
     "isSecureContext": true,
@@ -65,9 +65,9 @@
         "depth-clip-control",
         "texture-compression-bc",
         "dual-source-blending",
-        "clip-distances",
         "timestamp-query",
         "shader-f16",
+        "clip-distances",
         "float32-filterable",
         "indirect-first-instance"
       ]
@@ -84,14 +84,11 @@
   "_provenance": {
     "engine": "chromium",
     "engineNote": "Playwright bundled Chromium, not the user's Chrome build",
-    "protocol": "http",
+    "protocol": "file",
     "os": "macOS",
     "machine": "Apple M4, 16 GB",
     "headless": false,
     "permissiveFlags": "none",
     "complete": true
-  },
-  "_consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 (File not found)"
-  ]
+  }
 }

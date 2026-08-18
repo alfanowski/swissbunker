@@ -1,0 +1,66 @@
+{
+  "probe": "p2",
+  "title": "Directory enumeration under a null origin",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 16,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fsa_api_present": {
+      "ok": true,
+      "detail": true
+    },
+    "webkitdirectory_supported": {
+      "ok": true,
+      "detail": true
+    },
+    "datatransfer_items_present": {
+      "ok": true,
+      "detail": true
+    },
+    "webkitdirectory_returned_files": {
+      "ok": true,
+      "detail": true
+    },
+    "webkitdirectory_file_readable": {
+      "ok": true,
+      "detail": true
+    },
+    "large_file_tail_readable": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {
+    "webkitdirectory_enumeration_ms": 0,
+    "webkitdirectory_summary": {
+      "count": 7,
+      "totalBytes": 19233591332,
+      "totalGB": 19.23,
+      "largestFile": {
+        "name": "large-verifiable.bin",
+        "bytes": 12884901888,
+        "GB": 12.88
+      },
+      "largestOver4GB": true
+    }
+  },
+  "_provenance": {
+    "engine": "chrome",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  }
+}

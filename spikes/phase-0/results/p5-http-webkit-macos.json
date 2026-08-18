@@ -1,0 +1,62 @@
+{
+  "probe": "p5",
+  "title": "WebGPU and Workers under a null origin",
+  "context": {
+    "origin": "http://localhost:8391",
+    "protocol": "http:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "platform": "MacIntel",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": false,
+    "deviceMemoryGB": null,
+    "hardwareConcurrency": 8
+  },
+  "checks": {
+    "webgpu_api_present": {
+      "ok": false,
+      "detail": false
+    },
+    "webgpu_device_acquired": {
+      "ok": false,
+      "detail": false
+    },
+    "compute_shader_dispatch": {
+      "ok": false,
+      "detail": false
+    },
+    "one_gb_buffer_allocation": {
+      "ok": false,
+      "detail": false
+    },
+    "blob_worker_runs": {
+      "ok": true,
+      "detail": true
+    },
+    "webgpu_inside_blob_worker": {
+      "ok": false,
+      "detail": false
+    },
+    "sab_status_under_null_origin": {
+      "ok": true,
+      "detail": {
+        "crossOriginIsolated": false,
+        "sharedArrayBuffer": false,
+        "note": "absence here is expected under file:// and is why CPU inference stays single-threaded"
+      }
+    }
+  },
+  "measurements": {},
+  "info": {},
+  "_provenance": {
+    "engine": "webkit",
+    "engineNote": "Playwright WebKit — shares Safari's engine, not its policy layer",
+    "protocol": "http",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "complete": true
+  }
+}

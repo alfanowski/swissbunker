@@ -51,50 +51,87 @@ Fix the probe. Only a `file://`-specific failure is a finding.
 
 ## Verdicts
 
-Record the outcome of each probe here as it completes, so the findings document can be
-written from this file rather than from memory.
+All six probes ran on 2026-08-19 across chromium, chrome, firefox and webkit, in both
+protocols — 48 records, all committed in `results/`. Full analysis in
+[`docs/reports/2026-08-19-phase-0-findings.md`](../../docs/reports/2026-08-19-phase-0-findings.md).
 
-### P1 verdict
+**Decision: GO WITH CHANGES.**
 
-**Control condition only, 2026-08-19.** Chromium (Playwright) on macOS, Apple M4:
-all 8 checks PASS over `http://` — including `dynamic_esm_import`, `fetch_sibling_file`,
-`indexeddb_usable` and `opfs_usable`. This confirms the probe itself is sound; it says
-nothing yet about `file://`, which is the condition that matters and must be run by hand.
+### P1 — code loading
 
-Record: `results/p1-http-chromium-macos.json`
+`file://` costs three capabilities: ES module import, `fetch` of a sibling file, and OPFS
+(the last on Chromium and WebKit; Firefox keeps it). Classic script tags, inline
+`WebAssembly.instantiate`, Blob-URL scripts, `localStorage` and `IndexedDB` all survive.
+`isSecureContext` is true, which is why WebGPU and WebCrypto remain available.
 
-### P2 verdict — risk R1
+**Consequence:** everything ships as classic IIFE with wasm inlined in base64.
 
-_pending_
+### P2 — directory enumeration · risk R1
 
-### P3 verdict — risk R6 and the latency budget
+`webkitdirectory` returns valid `File` objects on **all four engines** under `file://`.
+Seven files totalling 19.23 GB enumerated in **0 ms**. `showDirectoryPicker` is absent on
+Firefox and WebKit, confirming that not depending on it was necessary rather than merely
+prudent.
 
-_pending_
+**R1 neutralised** for disk reading — the bet the whole architecture rests on.
 
-### P4 verdict
+### P3 — range reads · risk R6 and the latency budget
 
-_pending_
+Byte-level correctness holds at every boundary, across the 4 GB line, and over 200 random
+pages of a 12.88 GB file. **R6 neutralised.**
 
-### P5 verdict — risk R7 and tier calibration
+The decisive number: 1400 scattered 4 KB reads cost 297.8 ms against 7.6 ms for a single
+contiguous 5.6 MB read — the same bytes at **39.2× the cost**. IVF over HNSW is confirmed.
+Parallel reads beat sequential by only 1.23×, so the IVF reader stays sequential.
 
-**Control condition only, 2026-08-19.** Chromium (Playwright) on macOS, Apple M4 / 16 GB:
-all 7 checks PASS over `http://`.
+Caveat: measured on an exFAT disk image over internal NVMe. exFAT semantics are real, USB
+latency is not.
 
-Two findings worth carrying forward, both provisional until confirmed under `file://` and
-on non-Apple hardware:
+### P4 — SQLite over range reads
 
-- **`maxBufferSize` = 4294967292 bytes (4.29 GB)**, not the ~2 GB that spec constraint V4
-  assumes. Adapter reports `apple / metal-3` with `shader-f16` and `subgroups`. If this
-  holds across machines, the tier table in spec §8.1 is too conservative and Tier 3 is
-  reachable on Apple Silicon.
-- **`webgpu_inside_blob_worker` PASS** — a Blob-URL worker acquired its own adapter, so
-  inference can leave the main thread. The UI does not have to be designed around a
-  blocking generate call.
+Two findings, one bad and one better than expected.
 
-`crossOriginIsolated: false` and no `SharedArrayBuffer`, as expected without COOP/COEP.
+- **`sql.js` has no FTS5** — `no such module: fts5` on all four engines. The full-text engine
+  the spec is built on does not exist in the assumed library. New risk **R10**.
+- **Synchronous blocking reads are possible.** A synchronous XHR against the Blob URL of a
+  file slice returns the correct bytes in **0.7 ms**, on all four engines. Since SQLite's VFS
+  demands synchronous reads and `file://` denies `SharedArrayBuffer`, this was the worst
+  theoretical blocker — and it is not there.
 
-Record: `results/p5-http-chromium-macos.json`
+Also: 39.7 MB read per simulated query is too high, dominated by the 1 MB chunk size, and the
+lazy reader needs LRU eviction (risk **R13**).
 
-### P6 verdict — risk R2
+### P5 — WebGPU and workers · risk R7
 
-_pending_
+Chromium and Chrome: full pass under `file://`, including compute shader dispatch with a
+verified numeric result, a 1 GB buffer allocation, and WebGPU **inside a Blob-URL worker** —
+so inference can leave the main thread.
+
+`maxBufferSize` measures **4.29 GB** on Apple M4, not the ~2 GB the spec assumed. **R7 is
+reversed**: the constraint was too conservative.
+
+Firefox and WebKit report no WebGPU, but these are Playwright builds that do not ship it.
+That is a tooling limit, **not** evidence about Safari 26 or Firefox 147. Risk **R12**, to be
+closed by hand.
+
+### P6 — model weights · risk R2
+
+Full pass on all four engines. `cache_api_accepts_file` works, so the cheap path for R2 is
+open: a library's HTTP loader can be satisfied by pre-populating the Cache API. A 491 MB
+`File` transfers to a worker with its size intact, and streams at ~4.4 GB/s.
+
+**R2 drops from Medium/High to Low.**
+
+## Contamination found and corrected
+
+Playwright's Firefox build ships `pref("security.fileuri.strict_origin_policy", false)`,
+which disables the exact policy this spike measures. The first Firefox pass reported 8/8 —
+fiction. The runner now restores the preference; Firefox scores 6/8, in line with the other
+engines. Those records were deleted, not amended.
+
+Chromium and WebKit were checked for the equivalent: Playwright passes them no
+`--allow-file-access-from-files` and no `--disable-web-security`. Their records are clean.
+
+A second defect was mine: `webgpu_inside_blob_worker` scored PASS on engines with no WebGPU,
+because the check returned the failure *reason* as a string and `Probe.check` treats any
+non-false value as success. Fixed to return `false`.
