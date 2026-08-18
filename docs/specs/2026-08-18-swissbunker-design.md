@@ -329,9 +329,13 @@ farebbe da filesystem locale. È il vincolo del Runtime a decidere il formato de
 le prestazioni della build.
 
 > **Attenzione, verificato in Fase 0: `sql.js` non è compilato con FTS5.** Una query FTS5
-> fallisce con `no such module: fts5` su tutti e quattro i motori. Serve un build che lo
-> includa — `@sqlite.org/sqlite-wasm` (ufficiale, FTS5 di serie, espone l'API VFS),
-> `wa-sqlite` (progettato per VFS custom) o `sql.js-fts5`. Rischio R10.
+> fallisce con `no such module: fts5` su tutti e quattro i motori.
+>
+> **Sostituito con `@sqlite.org/sqlite-wasm` 3.53.0** (SQLite ufficiale): FTS5 verificato con
+> needle test, `sqlite3_vfs_register` esposto, wasm da 844 KB. Va bundlato in IIFE con il
+> wasm passato via `wasmBinary`, perché il pacchetto è ESM. `sql.js-fts5` ha FTS5 ma **nessun
+> VFS**, quindi caricherebbe l'intero indice in memoria: scartato. Vedi
+> [findings Fase 0 §6bis](../reports/2026-08-19-phase-0-findings.md).
 >
 > **Il VFS è però realizzabile**, il che prima della misura non era scontato: SQLite pretende
 > letture *sincrone*, `File.slice()` è asincrono e `file://` nega `SharedArrayBuffer`, quindi
@@ -642,7 +646,7 @@ Restano ~575 GB liberi su 1 TB. Upgrade successivi possibili: Wikipedia EN `all_
 | Livello | Scelta | Perché |
 |---|---|---|
 | Daemon | **Rust** (axum, tokio, rusqlite, ort) | Binario statico senza runtime; unica lingua che dà un eseguibile copiabile su exFAT che parte ovunque |
-| Full-text | **SQLite FTS5** via `@sqlite.org/sqlite-wasm` o `wa-sqlite` | L'unico indice testuale serio leggibile dal browser via WASM. **Non `sql.js`**: quel build non include FTS5 (R10) |
+| Full-text | **SQLite FTS5** via `@sqlite.org/sqlite-wasm` 3.53.0 | L'unico indice testuale serio leggibile dal browser via WASM. Scelto per il VFS, non solo per FTS5: è l'unico candidato che espone `sqlite3_vfs_register`. **Non `sql.js`** (niente FTS5) né `sql.js-fts5` (niente VFS) |
 | Vettoriale | **IVF custom** (formato proprio) | Nessuna libreria esistente ha un formato pensato per il range-read da browser |
 | Embedder | **multilingual-e5-small** ONNX | 384 dim, multilingue IT/EN, ~2k chunk/s su M4 |
 | Reranker | **jina-reranker-v2-base-multilingual** ONNX q8 | Buon rapporto qualità/peso per l'esecuzione in browser |
@@ -717,7 +721,7 @@ Cifratura, update differenziali, matrice cross-browser, firma dei binari, docume
 | **R7** | Limite `maxBufferSize` WebGPU inferiore al previsto | Medio | **Rovesciato** | [F0 §3.3](../reports/2026-08-19-phase-0-findings.md) — 4.29 GB su Apple M4, non ~2 GB | Il vincolo era troppo conservativo; tier deciso a runtime |
 | **R8** | Banda internet insufficiente rende la build impraticabile | Medio | Bassa | Non misurato | Il wizard misura la banda e avvisa prima; supporto torrent |
 | **R9** | Mirror Kiwix lenti o irraggiungibili | Medio | Media | Il download ZIM di prova è fallito in Fase 0 (URL con suffisso data) | Mirror multipli, torrent primario, cataloghi versionati |
-| **R10** | **`sql.js` non include FTS5** | **Alto** | **Certa** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — `no such module: fts5` su 4/4 | Passare a `@sqlite.org/sqlite-wasm`, `wa-sqlite` o `sql.js-fts5`. Da chiudere prima della Fase 1 |
+| **R10** | `sql.js` non include FTS5 | Alto | **Risolto** | [F0 §6bis](../reports/2026-08-19-phase-0-findings.md) — `@sqlite.org/sqlite-wasm` 3.53.0 ha FTS5 e `sqlite3_vfs_register` | Adottato l'ufficiale. Resta da provare il percorso completo da `file://` su DB grande: è il criterio di uscita della Fase 1 |
 | **R11** | **OPFS non disponibile da `file://`** su Chromium e WebKit | Medio | **Certa** | [F0 §2](../reports/2026-08-19-phase-0-findings.md) | Storage utente su IndexedDB (PASS su 4/4). Vincolo V7 |
 | **R12** | **WebGPU non verificato su Safari e Firefox reali** | Medio | Aperta | Le build Playwright dei due motori non spediscono WebGPU | Verifica manuale obbligatoria prima della Fase 4 |
 | **R13** | Il lettore pigro non ha politica di eviction | Basso | **Certa** | [F0 §1](../reports/2026-08-19-phase-0-findings.md) — 795 MB di cache contro soglia 500 MB | LRU e chunk più piccolo di 1 MB: l'amplificazione a 39.7 MB/query è dominata dal chunk |

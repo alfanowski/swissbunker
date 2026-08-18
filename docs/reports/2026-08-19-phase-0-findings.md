@@ -38,7 +38,7 @@ VFS SQLite vero è quindi implementabile, cosa che prima della misura era in dub
 
 | ID | Rischio | Impatto | Evidenza |
 |---|---|---|---|
-| **R10** | `sql.js` non include FTS5 | **Alto** | `fts5_engine_works` → `no such module: fts5` su 4/4 motori |
+| **R10** | `sql.js` non include FTS5 | Alto → **risolto**, vedi §6bis | `fts5_engine_works` → `no such module: fts5` su 4/4 motori |
 | **R11** | OPFS non disponibile da `file://` su Chromium e WebKit | Medio | `opfs_usable` fail su chromium/chrome/webkit, PASS su firefox |
 | **R12** | WebGPU non verificabile su Safari e Firefox reali con questa toolchain | Medio | Le build Playwright di Firefox e WebKit non spediscono WebGPU |
 | **R13** | Il lettore pigro non ha politica di eviction | Basso | `cache_stayed_bounded` fail: 795 MB di cache, oltre la soglia di 500 MB |
@@ -126,7 +126,8 @@ di IVF, perché il costo per singola operazione cresce e le 1400 letture seriali
   misurabile. Il vincolo exFAT e il vincolo browser puntavano davvero nella stessa direzione.
 - **IVF invece di HNSW — confermato, 39×.**
 - **SQLite FTS5 come motore full-text — confermato come scelta, smentito come libreria.**
-  Il motore va bene; `sql.js` non lo contiene.
+  Il motore va bene; `sql.js` non lo contiene. Sostituito con `@sqlite.org/sqlite-wasm`
+  3.53.0 (§6bis).
 - **Tiering dei modelli — da ritarare.** Con 4.29 GB di buffer su Apple Silicon, il Tier 3
   è raggiungibile dove la spec si fermava al Tier 2.
 - **OPFS per l'area personale — smentito.** Va sostituito con IndexedDB.
@@ -190,10 +191,43 @@ esattamente il genere di errore che questo spike esiste per evitare.
 
 ---
 
+## 6bis. Addendum — R10 risolto (2026-08-19)
+
+Valutati in Node i due candidati praticabili. Entrambi superano il needle test: una tabella
+`fts5` creata, il token piantato in una riga su due, e la riga giusta restituita.
+
+| | `@sqlite.org/sqlite-wasm` 3.53.0 | `sql.js-fts5` 1.4.0 |
+|---|---|---|
+| FTS5 | **sì** — needle trovato | **sì** — needle trovato |
+| `sqlite3_vfs_register` | **presente** | assente |
+| `FS.createLazyFile` / `registerDevice` / `mount` | n/d (usa l'API C) | **tutti `undefined`** |
+| Dimensione wasm | **844 KB** | 1185 KB |
+| Formato | ESM — va bundlato in IIFE | UMD — si carica da script tag |
+| Manutentore | **il progetto SQLite** | fork di terze parti |
+
+**Scelto: `@sqlite.org/sqlite-wasm`.** La differenza decisiva non è FTS5, che entrambi
+hanno: è il VFS. `sql.js-fts5` non espone alcun meccanismo di lettura pigra, quindi
+caricherebbe in memoria l'intero indice da decine di gigabyte — cioè esattamente ciò che il
+progetto non può fare. Il suo unico vantaggio, caricarsi da uno script tag, riguarda un
+problema che sappiamo già risolvere: bundling IIFE con il wasm passato via `wasmBinary`, la
+stessa tecnica già usata in P4.
+
+`wa-sqlite` non è stato valutato: l'ufficiale offre già VFS e FTS5 ed è mantenuto dal
+progetto SQLite, quindi un terzo candidato non cambierebbe la decisione.
+
+**Resta da verificare in Fase 1:** che il pacchetto ufficiale, bundlato in IIFE, registri un
+VFS e completi una query FTS5 su database multi-gigabyte **da `file://`**. Questa prova
+richiede un browser e non è stata fatta qui.
+
+**R10 scende da Alto/Certa a Basso/Aperto.**
+
+---
+
 ## 7. Cosa serve prima della Fase 1
 
-1. Scegliere il build di SQLite WASM con FTS5 e verificare che una query FTS5 vera giri da
-   `file://` — è la prova che manca al punto 5 della sezione precedente.
+1. ~~Scegliere il build di SQLite WASM con FTS5~~ — **fatto**, vedi §6bis. Resta da provare
+   il percorso completo da `file://` su database grande, che è il criterio di uscita della
+   Fase 1 stessa.
 2. Ripetere P2, P3 e P4 su un **disco esterno exFAT reale** per ottenere il budget di latenza
    vero.
 3. Ripetere l'intera batteria su **Windows**, con Chrome, Edge e Firefox.
