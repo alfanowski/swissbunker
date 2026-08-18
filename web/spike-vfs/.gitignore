@@ -1,0 +1,2 @@
+# The fixture is rebuilt by the one-liner in README.md; the packages by npm install.
+tiny-fts.sqlite

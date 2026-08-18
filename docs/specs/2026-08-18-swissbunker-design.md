@@ -337,6 +337,11 @@ le prestazioni della build.
 > VFS**, quindi caricherebbe l'intero indice in memoria: scartato. Vedi
 > [findings Fase 0 §6bis](../reports/2026-08-19-phase-0-findings.md).
 >
+> **Confermato con un VFS funzionante** (Fase 1 Task 1, `web/spike-vfs/`): un VFS di sola
+> lettura in ~105 righe risponde a una query FTS5 leggendo **32 KB su 1.5 MB, il 2.1% del
+> database**. `wa-sqlite` ha un'API VFS più comoda e un wasm più piccolo, e il suo VFS
+> funziona davvero — ma **nessuno dei suoi build contiene FTS5**, quindi è fuori.
+>
 > **Il VFS è però realizzabile**, il che prima della misura non era scontato: SQLite pretende
 > letture *sincrone*, `File.slice()` è asincrono e `file://` nega `SharedArrayBuffer`, quindi
 > il solito ponte worker + `Atomics.wait` non esiste. Una XHR **sincrona** contro il Blob URL

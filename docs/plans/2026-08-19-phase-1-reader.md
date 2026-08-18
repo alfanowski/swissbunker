@@ -14,9 +14,9 @@ bloccante, unica forma che SQLite accetti; una **cache a pagine** con eviction L
 l'amplificazione di lettura; un **VFS** collega il tutto a SQLite. Sopra ci sta la ricerca
 FTS5 e una UI minima.
 
-**Tech Stack:** TypeScript, `@sqlite.org/sqlite-wasm` 3.53.0 (o `wa-sqlite`, vedi Task 1),
-esbuild per il bundle IIFE, Vitest in browser mode per i test unitari, Playwright per la
-suite di conformità `file://`.
+**Tech Stack:** TypeScript, **`@sqlite.org/sqlite-wasm` 3.53.0** (deciso nel Task 1, già
+eseguito), esbuild per il bundle IIFE, Vitest in browser mode per i test unitari, Playwright
+per la suite di conformità `file://`.
 
 **Spec:** [`docs/specs/2026-08-18-swissbunker-design.md`](../specs/2026-08-18-swissbunker-design.md) — §4.2 `reader`, §6.4, §6.3
 **Evidenza di partenza:** [`docs/reports/2026-08-19-phase-0-findings.md`](../reports/2026-08-19-phase-0-findings.md)
@@ -91,7 +91,15 @@ che passano nella condizione che non ci interessa.
 
 ---
 
-### Task 1: Decidere il motore SQLite — spike breve
+### Task 1: Decidere il motore SQLite — spike breve · ✅ COMPLETATO 2026-08-19
+
+> **Esito: `@sqlite.org/sqlite-wasm`.** Entrambi i candidati aprono un database attraverso un
+> VFS custom; solo l'ufficiale ha FTS5 — `wa-sqlite` non lo contiene in nessuno dei suoi due
+> build wasm. Il VFS di sola lettura costa ~105 righe e ha risposto alla query needle leggendo
+> il **2.1% del database**. Dettagli e tabella comparativa in
+> [`web/spike-vfs/README.md`](../../web/spike-vfs/README.md).
+>
+> I passi sotto restano come traccia di ciò che è stato fatto. Il Task 2 è il prossimo.
 
 **Files:**
 - Create: `web/spike-vfs/README.md`

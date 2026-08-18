@@ -1,0 +1,37 @@
+=== @sqlite.org/sqlite-wasm ===
+  version: 3.53.0
+  capi vfs symbols (13):
+      SQLITE_FCNTL_VFSNAME
+      SQLITE_FCNTL_VFS_POINTER
+      SQLITE_FCNTL_ZIPVFS
+      sqlite3_js_db_uses_vfs
+      sqlite3_js_db_vfs
+      sqlite3_js_kvvfs_clear
+      sqlite3_js_kvvfs_size
+      sqlite3_js_vfs_create_file
+      sqlite3_js_vfs_list
+      sqlite3_vfs
+      sqlite3_vfs_find
+      sqlite3_vfs_register
+      sqlite3_vfs_unregister
+  StructBinder: undefined
+  sqlite3.vfs namespace: object installVfs
+  sqlite3.oo1 helpers: DB, Stmt, JsStorageDb
+  io_methods symbols: sqlite3_js_posix_create_file, sqlite3_js_vfs_create_file, SQLITE_FCNTL_CKSM_FILE, sqlite3_io_methods, sqlite3_file
+
+  packaging
+
+=== wa-sqlite ===
+  version: 1.0.0 | type: module
+  exports: (none declared)
+  wa-sqlite/src/VFS.js -> Base, 16 methods
+     handleAsync, xAccess, xCheckReservedLock, xClose, xDelete, xDeviceCharacteristics, xFileControl, xFileSize, xLock, xOpen, xRead, xSectorSize, xSync, xTruncate, xUnlock, xWrite
+  wa-sqlite/src/FacadeVFS.js: absent
+
+  packaging
+     wa-sqlite-async.mjs                    43 KB
+     wa-sqlite-async.wasm                   1113 KB
+     wa-sqlite.mjs                          41 KB
+     wa-sqlite.wasm                         545 KB
+(node:72114) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
