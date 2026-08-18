@@ -53,11 +53,27 @@ jobs:
           done
           echo "Repository structure intact."
 
-  # Enabled in Phase 1, once crates/ exists.
+  # hashFiles() is evaluated on the runner, so it cannot gate a job-level `if`.
+  # This job does the filesystem check after checkout and publishes the answer,
+  # letting the language jobs switch themselves on the moment code lands.
+  detect:
+    name: Detect components
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.probe.outputs.rust }}
+      web: ${{ steps.probe.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: probe
+        run: |
+          [ -f Cargo.toml ] && echo "rust=true" >> "$GITHUB_OUTPUT" || echo "rust=false" >> "$GITHUB_OUTPUT"
+          [ -f web/package.json ] && echo "web=true" >> "$GITHUB_OUTPUT" || echo "web=false" >> "$GITHUB_OUTPUT"
+
   rust:
     name: Rust
+    needs: detect
+    if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('Cargo.toml') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -68,11 +84,11 @@ jobs:
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-features
 
-  # Enabled in Phase 1, once web/ exists.
   web:
     name: Web
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('web/package.json') != '' }}
     defaults:
       run:
         working-directory: web
