@@ -23,6 +23,13 @@ dist/
 # script needs npm install anyway — so committing 850 KB of base64 buys nothing.
 spikes/*/vendor/
 
+# Built bundles and generated sources: reproduced by web/build.mjs
+web/dist/
+web/src/generated/
+
+# Test fixtures: rebuilt by web/tools/make-tiny-fixture.py
+web/test/fixtures/*.sqlite
+
 # Local state
 .state/
 *.sqlite
