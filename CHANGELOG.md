@@ -16,9 +16,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   minimal UI — 45 unit tests, 7 conformance checks under `file://`
 - Phase 1 verification report (`docs/reports/2026-08-19-phase-1-verification.md`)
 - Phase 2 implementation plan (`docs/plans/2026-08-19-phase-2-forge.md`)
+- Phase 2 Forge: journal, index builder, manifest, JSONL importer, HTTP daemon with JSON API
+  and SSE progress, Console in two modes, POSIX bootstrap script — 57 Rust tests
+- Phase 2 verification report (`docs/reports/2026-08-19-phase-2-verification.md`)
 - Repository scaffolding, proprietary license, CI skeleton
 
 ### Fixed
+- SQLite could not write to exFAT at all: every write failed with SQLITE_READONLY_DBMOVED
+  because SQLite compares inodes and exFAT has none that are stable. Fixed with
+  `PRAGMA locking_mode=EXCLUSIVE` (constraint V8)
 - Reader init died under `file://` because Emscripten resolves the wasm filename before
   reading `wasmBinary`; `locateFile` now supplied
 - Ranking a frequent term cost 2120 ms; a measured cutoff drops it to 1.8 ms

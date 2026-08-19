@@ -5,7 +5,7 @@
 **A portable, offline knowledge bunker on a single disk.**
 Plug it into any computer. No installation. No admin rights. No internet.
 
-`Status: phase 1 reader working` · `License: proprietary` · `Runtime: browser + WebGPU`
+`Status: phase 2 — end-to-end working` · `License: proprietary` · `Runtime: browser + WebGPU`
 
 </div>
 
@@ -126,8 +126,24 @@ Forge. Inserting documents most-important-first turns "storage order" into "impo
 at zero query-time cost. Same documents, only the order changed: *guerra* goes from
 "Mudang, House of the Dragon" to "Isole Falkland, Guerra delle Falkland".
 
-Next: the [Phase 2 plan](docs/plans/2026-08-19-phase-2-forge.md) — the Forge and the wizard,
-built as a walking skeleton from `curl` to a searchable disk.
+**Phase 2: the whole path works.** A file on the disk becomes an index, the index opens in
+the browser, and there is a panel instead of commands:
+
+```
+swissbunkerd serve --disk /Volumes/BUNKER
+```
+
+57 Rust tests, plus browser verification of the Console in both modes — Connected when the
+daemon answers, Portable when it does not.
+
+The costliest discovery was not in any plan: **SQLite cannot write to exFAT with default
+settings.** Every write fails with `SQLITE_READONLY_DBMOVED`, because SQLite compares inodes
+to detect a swapped file and exFAT has none that are stable. It surfaced only because the plan
+insisted on re-running the tests on exFAT rather than the internal disk — 12 of 13 passed on
+APFS and failed there.
+
+See the [Phase 2 verification](docs/reports/2026-08-19-phase-2-verification.md), including
+eight things it does **not** do.
 
 ## License
 
