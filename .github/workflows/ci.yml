@@ -105,6 +105,10 @@ jobs:
       # node_modules. Typechecking before the build fails on a module that does not exist yet.
       - run: npm run build
       - run: npm run typecheck
+      # The test fixture is a generated SQLite file, not committed: it is reproducible from
+      # a seeded script, and a binary blob in git that a script can rebuild is a liability.
+      # Without it the suite opens an empty database and fails with "no such table: docs".
+      - run: python3 tools/make-tiny-fixture.py
       # The unit suite runs in a real browser: Blob, synchronous XHR and File exist nowhere
       # else, so a headless-Node run would pass against stubs and prove nothing.
       - run: npx playwright install --with-deps chromium
