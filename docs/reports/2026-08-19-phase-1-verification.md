@@ -3,7 +3,8 @@
 **Data:** 2026-08-19
 **Hardware:** Apple M4, 16 GB, macOS · immagine exFAT sparse
 **Motore:** `@sqlite.org/sqlite-wasm` 3.53.0 · Chromium via Playwright, headed, zero flag permissivi
-**Esito:** criterio di latenza **superato**; criterio su contenuto reale **non verificato**
+**Esito:** criterio di latenza **superato**; ritaraggio su italiano reale **fatto** (§4bis),
+con una conseguenza di design per la Forge
 
 ---
 
@@ -18,6 +19,11 @@ Il percorso non è stato liscio, e le due cose che l'hanno quasi fatto fallire n
 piano. Una era un errore di inizializzazione che si manifesta **solo** sotto origin nullo. La
 seconda era un collasso di prestazioni su termini frequenti, che ha richiesto quattro
 esperimenti per essere isolato e ha smentito tre ipotesi mie prima di cedere.
+
+Il ritaraggio su italiano reale (§4bis) ha poi prodotto la scoperta più utile del lavoro, e
+non riguarda il Reader: metà delle ricerche ordinarie finirà nel percorso non ordinato, dove
+i risultati escono in ordine di inserimento — quindi **la Forge decide cosa vede l'utente**,
+e deve inserire i documenti in ordine di importanza. Costo a query time: zero.
 
 45 test unitari e 7 check di conformità, tutti verdi.
 
@@ -123,11 +129,10 @@ ingannerebbe qualcuno che non ha modo di verificare.
 
 ## 4. Cosa NON è stato dimostrato
 
-1. **Nessuna verifica su Wikipedia italiana reale.** Il corpus è sintetico: due milioni di
-   documenti con vocabolario casuale e distribuzione **uniforme**. Il linguaggio naturale è
-   zipfiano — poche parole comunissime e una lunga coda di rare — quindi la distribuzione
-   reale dei termini caldi sarà **diversa**, e il cutoff a 2000 va ritarato su testo vero.
-   Questo era il Task 8 del piano e resta aperto.
+1. **Le misure di latenza vengono da un corpus sintetico** — due milioni di documenti con
+   vocabolario casuale e distribuzione uniforme. La distribuzione reale è stata misurata a
+   parte (§4bis) su italiano vero, ma i **tempi** della §1 non sono stati rimisurati su un
+   indice italiano della stessa scala: quello richiede la Forge, cioè la Fase 2.
 2. **Un solo motore.** Solo Chromium. Firefox e WebKit non sono stati rieseguiti dopo la
    Fase 0, e la correzione di `locateFile` non è stata verificata su di loro.
 3. **Nessun disco USB reale.** Le latenze vengono da un'immagine exFAT su NVMe interno. La
