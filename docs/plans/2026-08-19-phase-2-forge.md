@@ -708,7 +708,15 @@ casi (spec §6.5).
 
 ---
 
-### Task 5: Indicizzazione in ordine di importanza
+### Task 5: Indicizzazione in ordine di importanza · ✅ COMPLETATO 2026-08-19
+
+> 9 test verdi su APFS ed exFAT, più **6 check di conformità cross-language**: un indice
+> costruito dal Forge in Rust, aperto dal Reader nel browser da `file://`, con l'ordine di
+> importanza intatto attraverso i due linguaggi. Criteri di uscita 4 e 5 soddisfatti.
+>
+> Costruzione a due passate: staging con l'importanza, poi rilettura `ORDER BY importance
+> DESC` dentro FTS5. Costa disco temporaneo pari al testo del corpus e compra la proprietà
+> che rende utile la ricerca non ordinata.
 
 **Files:**
 - Create: `crates/swissbunkerd/src/index.rs`, `tests/index.rs`

@@ -1,0 +1,72 @@
+{
+  "probe": "c6",
+  "title": "An index built by the Forge, read by the browser Reader",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "reader_opens_a_forge_built_index": {
+      "ok": true,
+      "detail": true
+    },
+    "schema_agrees_across_languages": {
+      "ok": true,
+      "detail": true
+    },
+    "importance_order_survives_into_the_reader": {
+      "ok": true,
+      "detail": true
+    },
+    "ranking_still_works_for_a_narrow_query": {
+      "ok": true,
+      "detail": true
+    },
+    "italian_accents_survive_the_round_trip": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {
+    "unranked_order": [
+      "Acqua potabile",
+      "Fotosintesi clorofilliana",
+      "Penicillina",
+      "Battaglia di Lepanto",
+      "Terremoto",
+      "Città di provincia",
+      "Nota marginale"
+    ],
+    "cache_stats": {
+      "hits": 4,
+      "misses": 3,
+      "evictions": 0,
+      "bytesRead": 24576,
+      "sourceReads": 3,
+      "cachedBytes": 24576
+    }
+  },
+  "_provenance": {
+    "engine": "chromium (playwright)",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "fixture": "/Volumes/SWISSTEST/demo-index.sqlite",
+    "complete": true
+  }
+}

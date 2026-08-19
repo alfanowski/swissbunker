@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Forge index conformance</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>Forge index conformance — file://</h1>
+<p>Select <code>demo-index.sqlite</code>, built by the Rust Forge.</p>
+<input type="file" id="dir-input" accept=".sqlite">
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// The two halves of this product are written in different languages and tested separately.
+// The only thing that proves they are ONE product is an index built by the Rust Forge and
+// opened by the browser Reader — which is what this page checks.
+//
+// It also verifies the property from spec §6.5 end to end: documents were handed to the
+// Forge in reverse importance order, and must come back most-important-first.
+(function () {
+  Probe.init('c6', 'An index built by the Forge, read by the browser Reader');
+
+  var EXPECTED = ['Acqua potabile', 'Fotosintesi clorofilliana', 'Penicillina',
+                  'Battaglia di Lepanto', 'Terremoto', 'Città di provincia',
+                  'Nota marginale'];
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var dbFile = e.target.files[0];
+    if (!dbFile) { await Probe.check('fixture_found', function(){return false;}); Probe.finish(); return; }
+    await Probe.check('fixture_found', function () { return true; });
+
+    var R = window.SwissBunkerReader;
+    var db = await R.openDatabase(new R.FileSource(dbFile), {
+      wasmBinary: R.sqliteWasmBinary(), pageSize: 8192
+    });
+    var index = new R.FtsIndex(db);
+
+    await Probe.check('reader_opens_a_forge_built_index', function () {
+      return db.query('SELECT count(*) FROM docs')[0][0] === 7;
+    });
+
+    // The Reader calls snippet(docs, 1, …) expecting column 1 to be body. If the Forge ever
+    // reorders its columns, this is where it shows up rather than in a user's face.
+    await Probe.check('schema_agrees_across_languages', function () {
+      var hits = index.search('penicillina');
+      if (hits.length !== 1) { return 'expected 1 hit, got ' + hits.length; }
+      if (hits[0].title !== 'Penicillina') { return 'wrong title: ' + hits[0].title; }
+      if (hits[0].snippet.indexOf('<mark>') === -1) { return 'no highlight in snippet'; }
+      return true;
+    });
+
+    // The end-to-end proof of spec §6.5: forced down the unranked path with rankLimit 0,
+    // results must come back in the importance order the Forge wrote them in.
+    await Probe.check('importance_order_survives_into_the_reader', function () {
+      var res = index.searchDetailed('bunker', { rankLimit: 0, limit: 10 });
+      if (res.ranked) { return 'expected the unranked path'; }
+      var got = res.hits.map(function (h) { return h.title; });
+      Probe.info('unranked_order', got);
+      for (var i = 0; i < EXPECTED.length; i++) {
+        if (got[i] !== EXPECTED[i]) {
+          return 'position ' + i + ': expected "' + EXPECTED[i] + '", got "' + got[i] + '"';
+        }
+      }
+      return true;
+    });
+
+    await Probe.check('ranking_still_works_for_a_narrow_query', function () {
+      var res = index.searchDetailed('fotosintesi');
+      return res.ranked && res.hits.length === 1 && res.hits[0].score > 0;
+    });
+
+    await Probe.check('italian_accents_survive_the_round_trip', function () {
+      var hits = index.search('città');
+      return hits.length > 0 ? true : 'accented query found nothing';
+    });
+
+    Probe.info('cache_stats', db.stats);
+    Probe.finish();
+  });
+}());
+</script>
