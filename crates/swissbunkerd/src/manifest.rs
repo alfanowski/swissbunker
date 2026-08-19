@@ -27,6 +27,10 @@ pub enum ImportanceSignal {
     Pageviews,
     /// Source order preserved; the corpus was already curated.
     SourceOrder,
+    /// The operator supplied importance values directly. What they mean is their business —
+    /// claiming a specific provenance we cannot verify would be worse than admitting we do
+    /// not know.
+    Explicit,
     /// No signal available. Unranked results are arbitrary, and the UI must say so.
     None,
 }

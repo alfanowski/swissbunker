@@ -660,7 +660,34 @@ cargo doc -p reqwest --no-deps --open   # confirm the Range and stream API shape
 
 ---
 
-### Task 4: Estrazione con segnale di importanza
+### Nota emersa dal primo end-to-end: i file AppleDouble
+
+Scrivendo su exFAT da macOS il disco si riempie di file `._nome` accanto a ogni file reale —
+sono i resource fork che macOS emula sui filesystem che non li supportano. Non rompono nulla,
+ma **su Windows compaiono come spazzatura** accanto a ogni contenuto, il che su un prodotto
+che si vanta di essere pulito non è accettabile.
+
+Da affrontare prima del rilascio: `COPYFILE_DISABLE=1` durante la scrittura, `dot_clean` alla
+fine di una build, oppure entrambi. Registrato ora perché si nota solo guardando il disco, e
+si smette di notarlo dopo la decima volta.
+
+### Task 4: Import da file locale · ✅ COMPLETATO 2026-08-19 (JSONL)
+
+> Riscritto secondo il cambio di scope: importa da un file già presente sul disco invece di
+> estrarre da uno ZIM scaricato. 13 test.
+>
+> **JSONL come formato nativo**: una riga per documento, streaming senza caricare il corpus in
+> memoria, sopravvive a un'ultima riga troncata, e chiunque può produrlo con uno script. Il
+> formato si riconosce dai magic byte prima che dall'estensione, perché un file rinominato a
+> mano è normale su un disco riempito a mano.
+>
+> **Lo ZIM è riconosciuto e rifiutato con istruzioni**, non ignorato: leggerlo richiede un
+> binding libzim, e la regola del progetto è ispezionare un'API prima di scriverci contro.
+>
+> Il segnale di importanza di default è l'ordine della sorgente. Se il JSONL porta valori
+> espliciti, il manifest registra `Explicit` e **non** inventa una provenienza che non conosce.
+
+### Task 4 (originale): Estrazione da ZIM — rinviata
 
 **Files:**
 - Create: `crates/swissbunkerd/src/extract.rs`, `tests/extract.rs`
