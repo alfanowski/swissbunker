@@ -100,6 +100,10 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      # Build first: it generates src/generated/wasm-binary.ts, which the sources import and
+      # which is deliberately not committed — it is 1.1 MB of base64 derived from a file in
+      # node_modules. Typechecking before the build fails on a module that does not exist yet.
+      - run: npm run build
       - run: npm run typecheck
       # The unit suite runs in a real browser: Blob, synchronous XHR and File exist nowhere
       # else, so a headless-Node run would pass against stubs and prove nothing.
