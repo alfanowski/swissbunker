@@ -37,7 +37,20 @@ function initSqlite(wasmBinary?: Uint8Array): Promise<any> {
     // Without wasmBinary the library resolves its .wasm relative to import.meta.url and
     // fetches it — which works over http:// and fails under a null origin. Passing the bytes
     // means the production path and the tested path are the same path.
-    modulePromise = init(wasmBinary ? { wasmBinary } : undefined);
+    //
+    // locateFile must be supplied as well, and this is not optional. Emscripten resolves the
+    // wasm filename before it ever looks at wasmBinary:
+    //
+    //   function ag(){ return s.locateFile ? MA("sqlite3.wasm") : new URL("sqlite3.wasm", …).href }
+    //
+    // In an IIFE bundle import.meta.url collapses to something that is not a valid URL, so
+    // the else branch throws "Failed to construct 'URL'" and initialisation dies before the
+    // inlined bytes are reached. Providing locateFile takes the other branch entirely.
+    // Found by the file:// conformance suite; the http:// unit tests never saw it, because
+    // over http the URL resolves fine.
+    modulePromise = init(
+      wasmBinary ? { wasmBinary, locateFile: (f: string) => f } : undefined
+    );
   }
   return modulePromise;
 }

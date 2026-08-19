@@ -1,0 +1,60 @@
+{
+  "probe": "c1",
+  "title": "Reader conformance under a null origin",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "bundle_is_self_contained": {
+      "ok": true,
+      "detail": true
+    },
+    "opens_multi_gb_database": {
+      "ok": false,
+      "detail": "Failed to construct 'URL': Invalid URL"
+    },
+    "finds_needle_under_500ms": {
+      "ok": false,
+      "detail": false
+    },
+    "never_loaded_whole_file": {
+      "ok": false,
+      "detail": false
+    },
+    "cache_stayed_bounded": {
+      "ok": false,
+      "detail": false
+    }
+  },
+  "measurements": {},
+  "info": {
+    "database_gb": 6.22
+  },
+  "_provenance": {
+    "engine": "chromium (playwright)",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "fixture": "/Volumes/SWISSTEST/fts-test.sqlite",
+    "complete": false
+  },
+  "_consoleErrors": [
+    "Exception loading sqlite3 module: TypeError: Failed to construct 'URL': Invalid URL\n    at ag (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:1:7859)\n    at Lg (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:1:8774)\n    at TI (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:2:50739)\n    at tA (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:27324)\n    at zQ (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:29451)\n    at Object.Rg (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:29533)\n    at file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/reader.html:47:20\n    at Object.check (file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/probe.js:51:27)\n    at HTMLInputElement.<anonymous> (file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/reader.html:45:17)",
+    "pageerror: Cannot read properties of null (reading 'query')"
+  ]
+}

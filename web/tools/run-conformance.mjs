@@ -13,11 +13,13 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const FIXTURES = process.env.SB_FIXTURES || '/Volumes/SWISSTEST';
+// One file, not the volume: see the comment in reader.html.
+const DB_FILE = process.env.SB_DB || join(FIXTURES, 'fts-test.sqlite');
 const OUT = join(ROOT, 'test', 'conformance', 'results');
 const TIMEOUT = Number(process.env.SB_TIMEOUT || 600) * 1000;
 
-if (!existsSync(FIXTURES)) {
-  console.error(`fixtures not mounted at ${FIXTURES}`);
+if (!existsSync(DB_FILE)) {
+  console.error(`database not found at ${DB_FILE}`);
   console.error('mount with: hdiutil attach ~/swissbunker-fixtures/exfat-test.sparseimage');
   process.exit(1);
 }
@@ -33,7 +35,8 @@ page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
 console.log(`opening file://${page_}`);
 await page.goto('file://' + page_);
-await page.locator('#dir-input').setInputFiles(FIXTURES, { timeout: 120000 });
+console.log(`selecting ${DB_FILE}`);
+await page.locator('#dir-input').setInputFiles(DB_FILE, { timeout: 120000 });
 
 let complete = true;
 try {
@@ -50,7 +53,7 @@ const record = JSON.parse(text);
 record._provenance = {
   engine: 'chromium (playwright)', protocol: 'file', os: 'macOS',
   machine: 'Apple M4, 16 GB', headless: false, permissiveFlags: 'none',
-  fixtures: FIXTURES, complete
+  fixture: DB_FILE, complete
 };
 if (errors.length) record._consoleErrors = errors.slice(0, 20);
 

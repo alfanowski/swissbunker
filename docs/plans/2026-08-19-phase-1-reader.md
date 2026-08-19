@@ -14,9 +14,18 @@ bloccante, unica forma che SQLite accetti; una **cache a pagine** con eviction L
 l'amplificazione di lettura; un **VFS** collega il tutto a SQLite. Sopra ci sta la ricerca
 FTS5 e una UI minima.
 
-**Tech Stack:** TypeScript, **`@sqlite.org/sqlite-wasm` 3.53.0** (deciso nel Task 1, già
-eseguito), esbuild per il bundle IIFE, Vitest in browser mode per i test unitari, Playwright
-per la suite di conformità `file://`.
+**Tech Stack:** TypeScript, **`@sqlite.org/sqlite-wasm` 3.53.0** (deciso nel Task 1), esbuild
+per il bundle IIFE, Vitest in browser mode per i test unitari, Playwright per la suite di
+conformità `file://`.
+
+> **Stato al 2026-08-19:** Task 1-7 completati, **42 test unitari verdi**. Resta il Task 8,
+> la verifica su contenuto reale.
+>
+> **Fixture leggere, per scelta.** La scala si misura su `fts-test.sqlite` — 5.8 GB e 2
+> milioni di documenti già presenti sul disco di prova, struttura FTS5 e dimensioni reali,
+> zero download. Il realismo linguistico si verifica su poche migliaia di articoli italiani
+> presi via API, non su un dump da 15 GB. Il criterio di uscita resta valido per la latenza;
+> la copertura lessicale di Wikipedia intera no, ed è dichiarata come limite.
 
 **Spec:** [`docs/specs/2026-08-18-swissbunker-design.md`](../specs/2026-08-18-swissbunker-design.md) — §4.2 `reader`, §6.4, §6.3
 **Evidenza di partenza:** [`docs/reports/2026-08-19-phase-0-findings.md`](../reports/2026-08-19-phase-0-findings.md)
@@ -200,7 +209,9 @@ pacchetto solo dove conta.
 
 ---
 
-### Task 2: `ByteSource` — l'astrazione della sorgente
+### Task 2: `ByteSource` — l'astrazione della sorgente · ✅ COMPLETATO 2026-08-19
+
+> 9 test. `readSync` via XHR sincrona su Blob URL, con verifica su tutti i 256 valori di byte.
 
 **Files:**
 - Create: `web/package.json`, `web/tsconfig.json`, `web/vitest.config.ts`
@@ -440,7 +451,9 @@ git commit -m "feat(reader): ByteSource with a blocking readSync over Blob URLs"
 
 ---
 
-### Task 3: `PageCache` — LRU e contabilità
+### Task 3: `PageCache` — LRU e contabilità · ✅ COMPLETATO 2026-08-19
+
+> 9 test. Pagina da 64 KB, eviction LRU verificata distinguendola da FIFO. Chiude R13.
 
 **Files:**
 - Create: `web/src/io/page-cache.ts`
@@ -668,7 +681,9 @@ git commit -m "feat(reader): page cache with LRU eviction, closing risk R13"
 
 ---
 
-### Task 4: Il VFS SQLite
+### Task 4: Il VFS SQLite · ✅ COMPLETATO 2026-08-19
+
+> 8 test. `installVfs` con `sqlite3_vfs` e `sqlite3_io_methods`. Due database aperti in parallelo.
 
 **Files:**
 - Create: `web/src/sqlite/vfs.ts`
@@ -876,7 +891,9 @@ git commit -m "feat(reader): read-only SQLite VFS over the page cache"
 
 ---
 
-### Task 5: Ricerca FTS5 con snippet e ranking
+### Task 5: Ricerca FTS5 con snippet e ranking · ✅ COMPLETATO 2026-08-19
+
+> 16 test. Sanificazione letterale-con-frasi; input malformato non lancia mai.
 
 **Files:**
 - Create: `web/src/search/fts.ts`
@@ -1076,7 +1093,9 @@ git commit -m "feat(search): FTS5 queries with bm25 ranking and query sanitisati
 
 ---
 
-### Task 6: Bundle IIFE con wasm inlineato
+### Task 6: Bundle IIFE con wasm inlineato · ✅ COMPLETATO 2026-08-19
+
+> `dist/reader.js` e `dist/app.js`, 1.31 MB ciascuno, dentro il budget di 2 MB. Zero `import()` nel bundle.
 
 **Files:**
 - Create: `web/build.mjs`
@@ -1255,7 +1274,9 @@ git commit -m "build(reader): IIFE bundle with inlined wasm, plus file:// confor
 
 ---
 
-### Task 7: UI minima di ricerca
+### Task 7: UI minima di ricerca · ✅ COMPLETATO 2026-08-19
+
+> `dist/START.html` con debounce e snippet parsati in nodi reali invece che via innerHTML.
 
 **Files:**
 - Create: `web/src/ui/app.ts`, `web/src/ui/styles.css`

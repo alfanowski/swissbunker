@@ -3,8 +3,11 @@
 <title>Reader conformance</title>
 <style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
 <h1>Reader conformance — file://</h1>
-<p>Select the volume holding <code>fts-test.sqlite</code>.</p>
-<input type="file" id="dir-input" webkitdirectory multiple>
+<p>Select <code>fts-test.sqlite</code> from the bunker volume.</p>
+<!-- A single-file input, not webkitdirectory: directory enumeration is already proven in
+     Phase 0 (P2, all four engines under file://), and picking the whole volume here would
+     make the runner materialise every fixture before the first assertion. -->
+<input type="file" id="dir-input" accept=".sqlite">
 <pre id="probe-output"></pre>
 <script src="probe.js"></script>
 <script src="../../dist/reader.js"></script>
@@ -16,8 +19,7 @@
   Probe.init('c1', 'Reader conformance under a null origin');
 
   document.getElementById('dir-input').addEventListener('change', async function (e) {
-    var files = Array.prototype.slice.call(e.target.files);
-    var dbFile = files.filter(function (f) { return f.name === 'fts-test.sqlite'; })[0];
+    var dbFile = e.target.files[0];
 
     if (!dbFile) {
       await Probe.check('fixture_found', function () { return false; });
