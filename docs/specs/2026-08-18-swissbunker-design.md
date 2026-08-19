@@ -360,6 +360,33 @@ le prestazioni della build.
 sul disco esterno alla fine. Scrivere un indice SQLite direttamente su exFAT via USB è
 patologicamente lento a causa del pattern di scrittura random del B-tree.
 
+### 6.4bis Perché non usare l'indice che gli ZIM contengono già
+
+Esame di Project Nomad, 2026-08-19: **Nomad non costruisce alcun indice.** Delega la ricerca a
+Kiwix, che legge l'indice fulltext Xapian già presente dentro ogni file ZIM. È una scelta
+sensata per Nomad, e va guardata in faccia prima di scartarla, perché costerebbe zero tempo di
+indicizzazione e zero spazio aggiuntivo.
+
+Resta scartata, per cinque ragioni che riguardano ciò che SwissBunker deve fare in più:
+
+1. **Nessuna ricerca trasversale.** Un indice per file significa N ricerche separate da fondere
+   lato client. L'indice unico su Wikipedia, libri, Q&A e manuali è il valore centrale del
+   prodotto, non un dettaglio.
+2. **Nessun controllo sul ranking.** Il cutoff sui termini frequenti (§7) e l'ordine di
+   importanza (§6.5) sono decisioni che Xapian non espone. Sono anche i due punti su cui la
+   Fase 1 ha dovuto intervenire per rendere il prodotto usabile.
+3. **Copre solo gli ZIM.** Il bunker deve indicizzare anche PDF, EPUB e i documenti personali
+   dell'utente, che non hanno alcun Xapian dentro.
+4. **La Fase 3 ha bisogno dei punteggi BM25** per la fusione RRF con il ramo vettoriale.
+   Xapian non li rende disponibili in una forma utilizzabile da questo stack.
+5. **libzim in WASM è una dipendenza pesante e non verificata**, mentre `sqlite-wasm` è già
+   stato misurato: 2.1% del file letto per rispondere a una query, VFS funzionante da
+   `file://`.
+
+**Cosa invece si prende da lì:** lo ZIM contiene già il testo, quindi l'indice *potrebbe*
+essere contentless e dimezzarsi, leggendo il corpo dallo ZIM solo per gli snippet. La
+decisione resta aperta e dipende dal lettore ZIM, che è ciò che la §6.6 già dice.
+
 ### 6.5 Ordine di inserimento: l'ordine di archiviazione è una scelta di prodotto
 
 **La Forge deve inserire i documenti in ordine di importanza decrescente.** Non è
@@ -387,10 +414,19 @@ Confronto diretto sugli stessi documenti, cambiando solo l'ordine di inserimento
 costo si sposta sulla costruzione, dove si paga una volta sola.
 
 **Il segnale di importanza va scelto con cura.** La prova sopra usa le visite di un singolo
-giorno, e infatti i risultati pendono verso lo sport del momento. La Forge deve usare un
-segnale stabile: pageviews aggregate su un anno, oppure il numero di link entranti, che è il
-proxy classico di rilevanza enciclopedica. La lunghezza dell'articolo è stata provata e
-**non funziona**.
+giorno, e infatti i risultati pendono verso lo sport del momento. La lunghezza dell'articolo è
+stata provata e **non funziona**.
+
+**Default adottato: l'ordine della sorgente** (`ImportanceSignal::SourceOrder`). Costa zero, e
+non è arbitrario: gli ZIM di Kiwix — soprattutto le edizioni ridotte — selezionano gli
+articoli per popolarità, quindi l'ordine in cui compaiono nel file è già un segnale. Meglio di
+casuale, onesto su cosa sia, e disponibile senza rete né passate aggiuntive.
+
+**Miglioramento opzionale: i link entranti**, contati con una passata in più sul corpus. Da
+adottare solo se misurato meglio del default, non per principio.
+
+**Il manifest dichiara sempre quale segnale è stato usato**, incluso `none`, perché è ciò che
+determina se i risultati non ordinati significano "i più importanti" o soltanto "alcuni".
 
 ### 6.6 Strategia di chunking
 
