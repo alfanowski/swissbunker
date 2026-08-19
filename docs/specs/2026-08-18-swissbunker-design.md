@@ -352,7 +352,39 @@ le prestazioni della build.
 sul disco esterno alla fine. Scrivere un indice SQLite direttamente su exFAT via USB è
 patologicamente lento a causa del pattern di scrittura random del B-tree.
 
-### 6.5 Strategia di chunking
+### 6.5 Ordine di inserimento: l'ordine di archiviazione è una scelta di prodotto
+
+**La Forge deve inserire i documenti in ordine di importanza decrescente.** Non è
+un'ottimizzazione: è ciò che rende utilizzabile il percorso più battuto del motore di ricerca.
+
+Il ragionamento, tutto misurato in Fase 1:
+
+1. Ordinare per rilevanza costa 164× su termini frequenti, quindi sopra i 2000 match il
+   ranking viene saltato (§7).
+2. Scalando a Wikipedia IT completa, **circa metà delle query ordinarie supera quella soglia**:
+   `città` 175.000 match stimati, `guerra` 121.000, `storia` 100.000. Il fallback non è
+   l'eccezione, è la norma.
+3. Senza `ORDER BY`, FTS5 restituisce i match in **ordine di rowid crescente**, in modo stabile
+   anche con `OFFSET` — verificato.
+4. Quindi l'ordine di inserimento *è* l'ordine dei risultati per metà delle ricerche.
+
+Confronto diretto sugli stessi documenti, cambiando solo l'ordine di inserimento:
+
+| Query | Ordine arbitrario | Ordine per visite |
+|---|---|---|
+| `guerra` | Mudang, House of the Dragon, Livellatori | **Isole Falkland, Guerra delle Falkland** |
+| `città` | Muskegon, San Michele Extra | Campionato mondiale, Argentina |
+
+**Costo: zero.** Nessuna colonna in più, nessun indice in più, nessun lavoro a query time. Il
+costo si sposta sulla costruzione, dove si paga una volta sola.
+
+**Il segnale di importanza va scelto con cura.** La prova sopra usa le visite di un singolo
+giorno, e infatti i risultati pendono verso lo sport del momento. La Forge deve usare un
+segnale stabile: pageviews aggregate su un anno, oppure il numero di link entranti, che è il
+proxy classico di rilevanza enciclopedica. La lunghezza dell'articolo è stata provata e
+**non funziona**.
+
+### 6.6 Strategia di chunking
 
 - **Wikipedia:** chunk per sezione, con il titolo dell'articolo e la gerarchia delle sezioni
   ripetuti in testa a ogni chunk (contestualizzazione). Solo l'incipit va nell'indice denso.
@@ -360,6 +392,8 @@ patologicamente lento a causa del pattern di scrittura random del B-tree.
   confini di paragrafo, con titolo e capitolo in testa.
 - **Q&A (Stack Exchange):** domanda + risposta accettata come unità atomica. Mai spezzate.
 - **Manuali tecnici:** chunk per procedura/step, mai a metà di una sequenza operativa.
+
+Ogni corpus va poi **inserito in ordine di importanza decrescente**, per la ragione di §6.5.
 
 ---
 

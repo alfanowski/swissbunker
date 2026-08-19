@@ -141,10 +141,61 @@ ingannerebbe qualcuno che non ha modo di verificare.
 
 ---
 
+## 4bis. Ritaraggio su italiano reale (2026-08-19)
+
+Il limite principale della §4 è stato affrontato: 1.431 incipit casuali di Wikipedia IT presi
+via API, più i 330 articoli più visitati, contro un set di 22 query che una persona
+digiterebbe davvero.
+
+### La distribuzione reale rende il fallback la norma
+
+| Query | Match su 813 doc | % del corpus | Stima su 1.9M articoli |
+|---|---|---|---|
+| `città` | 75 | 9.2% | **175.000** |
+| `guerra` | 52 | 6.4% | **121.000** |
+| `storia` | 43 | 5.3% | **100.000** |
+| `anno` | 35 | 4.3% | 81.000 |
+| `fotosintesi` | 0 | 0% | — |
+
+**Undici query su ventidue supererebbero il cutoff di 2000** su una Wikipedia completa. Il
+cutoff resta corretto rispetto al costo — ordinare 175.000 match costerebbe una decina di
+secondi — ma la conseguenza è che **il percorso non ordinato diventa quello principale**, non
+l'eccezione prevista.
+
+### Conseguenza: l'ordine di archiviazione va reso significativo
+
+Verificato che FTS5, senza `ORDER BY`, restituisce i match in ordine di rowid crescente, in
+modo stabile anche con `OFFSET`. Quindi l'ordine di inserimento decide cosa vede l'utente in
+metà delle ricerche.
+
+A parità di documenti, cambiando solo l'ordine di inserimento:
+
+| Query | Ordine arbitrario | Ordine per visite |
+|---|---|---|
+| `guerra` | Mudang, House of the Dragon, Livellatori | **Isole Falkland, Guerra delle Falkland** |
+| `città` | Muskegon, San Michele Extra, Provincia di Catania | Campionato mondiale, Argentina |
+| `storia` | Corte di Artù, Paganesimo, Gianni Versace | Lionel Messi, Campionato mondiale |
+
+Il requisito è finito nella spec come §6.5. **Costo a query time: zero.**
+
+### Riserve su questa misura
+
+- **Il campione di popolarità è di un solo giorno**, e infatti i risultati pendono verso lo
+  sport del momento. Dimostra il meccanismo, non il segnale definitivo: la Forge deve usare
+  pageviews aggregate o link entranti.
+- **La lunghezza dell'articolo come proxy di importanza è stata provata e non funziona**:
+  ordinando per lunghezza i risultati non sono migliori di quelli arbitrari.
+- 1.431 incipit sono sufficienti a misurare la forma della distribuzione, non a stimare con
+  precisione i conteggi su 1.9M articoli. Le cifre scalate sono ordini di grandezza.
+- Gli incipit, non gli articoli interi: l'API limita gli estratti completi a una pagina per
+  richiesta. È comunque il testo che la spec §6.2 indicizza nel ramo denso.
+
+---
+
 ## 5. Cosa serve prima della Fase 2
 
-1. Costruire un indice da Wikipedia italiana reale, anche ridotto, e **ritarare il cutoff**
-   sulla distribuzione zipfiana vera.
+1. ~~Costruire un indice da Wikipedia italiana reale e ritarare il cutoff~~ — **fatto**,
+   vedi §4bis. Ne è uscito un requisito nuovo per la Forge (spec §6.5), non solo un numero.
 2. Rieseguire la conformità su Firefox e WebKit, per la correzione `locateFile`.
 3. Rieseguire le misure su un disco USB reale.
 4. Decidere se l'indice della Forge sarà contentless: dimezza lo spazio ma rende obbligatorio
