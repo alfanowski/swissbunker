@@ -100,6 +100,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run lint
       - run: npm run typecheck
+      # The unit suite runs in a real browser: Blob, synchronous XHR and File exist nowhere
+      # else, so a headless-Node run would pass against stubs and prove nothing.
+      - run: npx playwright install --with-deps chromium
       - run: npm test
