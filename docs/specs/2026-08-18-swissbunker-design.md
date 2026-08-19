@@ -106,6 +106,14 @@ installare, configurare o capire va rifiutata, anche a costo di prestazioni.
   3760 MB su Apple M4). `maxBufferSize` WebGPU **varia per GPU e va rilevato a runtime, mai
   assunto**: la stima iniziale di ~2 GB è stata smentita da una misura di **4.29 GB** su
   Apple M4. Il tier di modello si decide dal valore letto, non da una tabella statica.
+- **V8 — SQLite non può scrivere su exFAT con le impostazioni di default.** Misurato: ogni
+  scrittura fallisce con `SQLITE_READONLY_DBMOVED` (1032, *"database file has moved"*).
+  SQLite si difende da un file sostituito confrontando l'inode, ed exFAT non ha inode
+  stabili, quindi il controllo scatta a vuoto a ogni scrittura. **Serve
+  `PRAGMA locking_mode = EXCLUSIVE`**, che ferma il ricontrollo mantenendo il rollback
+  journal e quindi l'atomicità. Anche `journal_mode=MEMORY` e `journal_mode=OFF` funzionano,
+  ma comprano lo stesso risultato buttando via la sicurezza in caso di crash. Conseguenza:
+  **un solo processo per volta può scrivere un database sul bunker.**
 - **V7 — OPFS non disponibile da `file://`.** Misurato: `opfs_usable` fallisce su Chromium,
   Chrome e WebKit; passa solo su Firefox. Lo storage utente in modalità Portable usa
   **IndexedDB**, che passa su tutti e quattro i motori.

@@ -1,0 +1,17 @@
+[package]
+name = "swissbunkerd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = "1"
+# `bundled` compiles SQLite from source rather than linking the system library: the daemon
+# ships on the disk and runs on machines whose SQLite version is unknown and unmanaged.
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"

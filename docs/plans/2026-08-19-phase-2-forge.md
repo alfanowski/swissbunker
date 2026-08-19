@@ -39,6 +39,22 @@ e sarebbe meno utile: darebbe un'illusione di certezza esattamente dove la certe
 
 ---
 
+## Cambio di scope, 2026-08-19: la custodia, non il contenuto
+
+**Il committente ha chiarito che la Forge non deve procurarsi i contenuti.** Li metterà sul
+disco a mano. Questo sposta il baricentro della fase:
+
+- **Il download manager (Task 3) scende di priorità.** Resta nel piano perché il prodotto
+  finito lo vuole, ma non è più sul percorso critico e non blocca nulla.
+- **Il cuore diventa l'import**: prendere un file che si trova già sul disco, ricavarne
+  documenti e costruire l'indice. Il Task 4 va riscritto in questa chiave.
+- **Nessun download di prova è necessario per sviluppare.** Le fixture si generano, e il
+  contenuto vero arriva quando lo mette lui.
+
+L'ordine di lavoro diventa: journal → indicizzazione → import → daemon → wizard → download.
+
+---
+
 ## Percorso minimo, e cosa resta fuori
 
 Questa fase costruisce un **walking skeleton**: il percorso completo dal comando al risultato,
@@ -123,7 +139,12 @@ crash, cioè nel momento peggiore.
 
 ---
 
-### Task 1: Journal — lo stato che sopravvive al cavo staccato
+### Task 1: Journal — lo stato che sopravvive al cavo staccato · ✅ COMPLETATO 2026-08-19
+
+> 13 test, verdi **sia su APFS sia su exFAT**. La verifica su exFAT prescritta dallo Step 6
+> si è ripagata subito: 12 test su 13 fallivano lì con `SQLITE_READONLY_DBMOVED`. SQLite
+> confronta l'inode per difendersi da un file sostituito, ed exFAT non ne ha di stabili.
+> Risolto con `PRAGMA locking_mode = EXCLUSIVE`, ora vincolo V8 nella spec.
 
 **Files:**
 - Create: `crates/swissbunkerd/Cargo.toml`, `src/journal.rs`, `tests/journal.rs`
