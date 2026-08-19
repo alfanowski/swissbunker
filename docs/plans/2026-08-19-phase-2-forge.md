@@ -791,7 +791,22 @@ direttamente su exFAT via USB è patologicamente lento, ed è un'affermazione ma
 
 ---
 
-### Task 6: Daemon e API
+### Task 6: Daemon e API · ✅ COMPLETATO 2026-08-19 (API JSON)
+
+> 11 test, di cui cinque sulla sicurezza del confine. Il daemon rifiuta di ascoltare su
+> qualsiasi indirizzo non-loopback, rifiuta corpora fuori dal disco (path assoluti e `..`),
+> e rifiuta id che diventerebbero nomi di file pericolosi. Verificato anche dal vivo: il
+> daemon non risponde sull'IP di rete della macchina.
+>
+> `/api/health` **apre davvero ogni indice e ci esegue una query**: una voce di manifest il
+> cui file è sparito sembra perfettamente sana guardando solo il manifest.
+>
+> **Limite noto e dichiarato:** `/api/build` è sincrono. Una build vera dura minuti e deve
+> trasmettere progresso invece di tenere aperta una richiesta. Il journal registra già tutto
+> ciò che servirebbe a un endpoint di progresso; mancano gli eventi SSE, e disegnarne la
+> forma prima che esista una UI che li consuma sarebbe indovinare.
+
+### Task 6 (originale): Daemon e API
 
 **Files:**
 - Create: `crates/swissbunkerd/src/main.rs`, `src/api.rs`, `tests/api.rs`
