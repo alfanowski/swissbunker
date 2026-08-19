@@ -5,3 +5,4 @@
 
 pub mod index;
 pub mod journal;
+pub mod manifest;
