@@ -15,6 +15,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Phase 1 reader: ByteSource, LRU page cache, read-only SQLite VFS, FTS5 search, IIFE bundle,
   minimal UI — 45 unit tests, 7 conformance checks under `file://`
 - Phase 1 verification report (`docs/reports/2026-08-19-phase-1-verification.md`)
+- Phase 2 implementation plan (`docs/plans/2026-08-19-phase-2-forge.md`)
 - Repository scaffolding, proprietary license, CI skeleton
 
 ### Fixed

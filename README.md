@@ -116,7 +116,18 @@ it; and ranking a term present in 35,575 documents cost 2120 ms, which took four
 to isolate and disproved three hypotheses on the way.
 
 See the [Phase 1 verification](docs/reports/2026-08-19-phase-1-verification.md) — including
-what it does **not** prove, starting with the fact that the corpus is synthetic.
+what it does **not** prove.
+
+Retuning the rank cutoff on real Italian produced the most useful finding of the phase, and
+it is not about the reader: scaled to a full Italian Wikipedia, **half of ordinary queries
+exceed the cutoff**, so the unranked path is the normal one. FTS5 returns unranked matches in
+rowid order — so insertion order decides what users see, and insertion order belongs to the
+Forge. Inserting documents most-important-first turns "storage order" into "importance order"
+at zero query-time cost. Same documents, only the order changed: *guerra* goes from
+"Mudang, House of the Dragon" to "Isole Falkland, Guerra delle Falkland".
+
+Next: the [Phase 2 plan](docs/plans/2026-08-19-phase-2-forge.md) — the Forge and the wizard,
+built as a walking skeleton from `curl` to a searchable disk.
 
 ## License
 
