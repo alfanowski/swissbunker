@@ -51,10 +51,17 @@ const reader = await build({
   outfile: 'dist/reader.js'
 });
 const app = await build({ ...common, entryPoints: ['src/ui/app.ts'], outfile: 'dist/app.js' });
+// The Console is a separate entry point: it talks to the daemon and never touches the wasm,
+// so bundling it with the reader would make it carry 1.1 MB it has no use for.
+const console_ = await build({
+  ...common, entryPoints: ['src/console/console.ts'], outfile: 'dist/console.js'
+});
 
 copyFileSync('src/ui/styles.css', 'dist/styles.css');
+copyFileSync('src/console/console.css', 'dist/console.css');
+copyFileSync('src/console/console.html', 'dist/index.html');
 
-for (const [label, result] of [['reader.js', reader], ['app.js', app]]) {
+for (const [label, result] of [['reader.js', reader], ['app.js', app], ['console.js', console_]]) {
   const bytes = Object.values(result.metafile.outputs)[0].bytes;
   console.log(`built dist/${label} — ${(bytes / 1024 / 1024).toFixed(2)} MB`);
   if (bytes > BUDGET) {

@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwissBunker</title>
+<link rel="stylesheet" href="console.css">
+<div id="app">
+  <header>
+    <h1>SwissBunker <span id="mode" class="badge">…</span></h1>
+    <p id="summary">Checking this machine…</p>
+  </header>
+
+  <section id="connected" hidden>
+    <p class="path">Disk: <code id="disk-path"></code></p>
+
+    <h2>Contents</h2>
+    <ul id="corpora"></ul>
+
+    <h2>Add a corpus</h2>
+    <p class="hint">
+      A <code>.jsonl</code> file on the disk: one <code>{"title":…,"body":…}</code> per line.
+      Documents are indexed in the order they appear, so put what matters at the top.
+    </p>
+    <form id="build-form">
+      <label>File on the disk <input id="corpus" placeholder="corpus.jsonl" required></label>
+      <label>Identifier <input id="corpus-id" placeholder="wikipedia_it" required></label>
+      <label>Name <input id="corpus-name" placeholder="Wikipedia italiana"></label>
+      <button id="build-button" type="submit">Build</button>
+    </form>
+    <p id="build-error" class="error"></p>
+    <div id="progress"></div>
+  </section>
+
+  <section id="portable" hidden>
+    <p class="hint">
+      This machine is not running the daemon, so the bunker is read-only here — which is the
+      normal way to use it on a computer that is not yours.
+    </p>
+    <p><a href="START.html">Open the reader →</a></p>
+  </section>
+</div>
+<script src="console.js"></script>

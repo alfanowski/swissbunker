@@ -11,14 +11,17 @@ use anyhow::{bail, Context, Result};
 use axum::{
     extract::State,
     http::StatusCode,
+    response::sse::{Event, KeepAlive, Sse},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::import::import;
 use crate::index::{build_index, Document};
@@ -29,7 +32,31 @@ use crate::manifest::{CorpusEntry, Manifest};
 pub struct AppState {
     pub disk: PathBuf,
     pub journal: Journal,
+    /// One build at a time.
+    ///
+    /// Not a queue: two builds would contend for the same journal and, on exFAT, for a
+    /// database that must be opened with EXCLUSIVE locking. Refusing the second request with
+    /// a clear message beats a queue nobody asked for or a deadlock nobody expected.
+    pub busy: std::sync::atomic::AtomicBool,
 }
+
+impl AppState {
+    pub fn new(disk: PathBuf, journal: Journal) -> Self {
+        Self {
+            disk,
+            journal,
+            busy: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+}
+
+/// How often the progress stream samples the journal.
+///
+/// Progress is READ from the journal rather than pushed through a channel, because the
+/// journal is already the source of truth and already survives a crash. A channel would
+/// duplicate that state and then have to be kept in agreement with it — and the two would
+/// disagree exactly when something went wrong, which is when progress matters most.
+const PROGRESS_POLL: Duration = Duration::from_millis(250);
 
 pub type SharedState = Arc<AppState>;
 
@@ -53,19 +80,20 @@ pub struct BuildRequest {
     pub language: Option<String>,
 }
 
+/// The answer to "start a build": an acknowledgement, not a result.
+///
+/// A real build takes minutes to hours, so holding the request open until it finishes would
+/// mean a dashboard that appears frozen and a proxy that times out. The caller follows
+/// /api/progress from here.
 #[derive(Debug, Serialize)]
-pub struct BuildResponse {
-    pub id: String,
-    pub documents: u64,
-    pub skipped: u64,
-    pub index_bytes: u64,
-    pub build_secs: f64,
-    pub importance_signal: String,
+pub struct BuildStarted {
+    pub job: String,
+    pub started: bool,
 }
 
 /// An error that is safe to show a user: it says what went wrong and, where possible, what to
 /// do about it. Internal detail stays in the daemon's own output.
-pub struct ApiError(anyhow::Error);
+pub struct ApiError(pub anyhow::Error);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
@@ -97,6 +125,23 @@ pub fn state_dir(disk: &Path) -> PathBuf {
     disk.join(".state")
 }
 
+/// Build the router, optionally serving a dashboard directory alongside the API.
+///
+/// The dashboard is served from the disk rather than embedded in the binary, so the same
+/// files back both modes: Connected reaches them over http, Portable opens them directly
+/// from `file://`. Embedding would mean two copies that drift.
+pub fn router_with_app(state: SharedState, app_dir: Option<PathBuf>) -> Router {
+    let router = router(state);
+    match app_dir {
+        Some(dir) if dir.is_dir() => router.fallback_service(
+            tower_http::services::ServeDir::new(dir).append_index_html_on_directories(true),
+        ),
+        // No dashboard on the disk yet is not an error: the API still works, and the CLI is a
+        // complete way to use the daemon.
+        _ => router,
+    }
+}
+
 /// Build the router. Separated from serving so tests can drive it without a socket.
 pub fn router(state: SharedState) -> Router {
     Router::new()
@@ -104,6 +149,7 @@ pub fn router(state: SharedState) -> Router {
         .route("/api/manifest", get(get_manifest))
         .route("/api/build", post(post_build))
         .route("/api/health", get(get_health))
+        .route("/api/progress", get(get_progress))
         .with_state(state)
 }
 
@@ -188,28 +234,103 @@ pub fn probe_index(path: &Path) -> Result<u64> {
     Ok(n as u64)
 }
 
+/// Stream job progress as server-sent events.
+///
+/// Emits one event per poll containing every stage of every job, so a dashboard can render
+/// the whole pipeline from a single message rather than stitching together deltas.
+async fn get_progress(
+    State(s): State<SharedState>,
+) -> Sse<impl futures_core::Stream<Item = Result<Event, Infallible>>> {
+    let stream = async_stream::stream! {
+        let mut previous = String::new();
+        loop {
+            let payload = match s.journal.all_progress() {
+                Ok(rows) => {
+                    let items: Vec<_> = rows
+                        .iter()
+                        .map(|p| serde_json::json!({
+                            "job": p.job.0,
+                            "stage": p.stage.as_str(),
+                            "position": p.position,
+                            "total": p.total,
+                            "done": p.done,
+                            "error": p.error,
+                        }))
+                        .collect();
+                    serde_json::json!({ "jobs": items }).to_string()
+                }
+                Err(e) => serde_json::json!({ "error": format!("{e:#}") }).to_string(),
+            };
+
+            // Only send when something changed. A dashboard left open for an hour should not
+            // accumulate fourteen thousand identical messages.
+            if payload != previous {
+                previous = payload.clone();
+                yield Ok(Event::default().data(payload));
+            }
+            tokio::time::sleep(PROGRESS_POLL).await;
+        }
+    };
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
 async fn post_build(
     State(s): State<SharedState>,
     Json(req): Json<BuildRequest>,
-) -> Result<Json<BuildResponse>, ApiError> {
+) -> Result<Json<BuildStarted>, ApiError> {
+    use std::sync::atomic::Ordering;
+
+    // Validate everything the caller controls BEFORE accepting the job. A request that is
+    // going to fail should fail now, with an explanation, rather than in a background task
+    // whose only trace is a line in the progress stream.
     let corpus = resolve_corpus(&s.disk, &req.corpus)?;
     let id = sanitise_id(&req.id)?;
+    let name = req.name.clone().unwrap_or_else(|| id.clone());
+    let language = req.language.clone().unwrap_or_else(|| "it".to_string());
 
+    if s.busy.swap(true, Ordering::SeqCst) {
+        return Err(ApiError(anyhow::anyhow!(
+            "a build is already running; wait for it to finish or restart the daemon"
+        )));
+    }
+
+    let state = s.clone();
+    let job_id = id.clone();
+    // spawn_blocking, not spawn: importing and indexing are synchronous CPU and disk work,
+    // and running them on an async worker would stall every other request including the
+    // progress stream that exists to report on them.
+    tokio::task::spawn_blocking(move || {
+        let result = run_build(&state, &corpus, &job_id, &name, &language);
+        if let Err(e) = result {
+            // The failure is recorded where the dashboard already looks, rather than only in
+            // the daemon's own output where nobody would see it.
+            let _ = state.journal.failed(
+                &JobId(job_id.clone()),
+                crate::journal::Stage::Index,
+                &format!("{e:#}"),
+            );
+        }
+        state.busy.store(false, Ordering::SeqCst);
+    });
+
+    Ok(Json(BuildStarted {
+        job: id,
+        started: true,
+    }))
+}
+
+/// The whole pipeline for one corpus, synchronous by nature.
+fn run_build(s: &AppState, corpus: &Path, id: &str, name: &str, language: &str) -> Result<()> {
     std::fs::create_dir_all(index_dir(&s.disk))?;
-    let job = JobId(id.clone());
+    let job = JobId(id.to_string());
 
-    // Synchronous, and that is a known limitation rather than an oversight: a real build takes
-    // minutes to hours and must stream progress instead of holding a request open. The
-    // journal already records everything a progress endpoint would need; wiring it to
-    // server-sent events is the next task, and doing it now would mean designing the event
-    // shape before there is a UI asking for it.
     let mut docs: Vec<Document> = Vec::new();
-    let stats = import(&corpus, &s.journal, &job, |d| {
+    let stats = import(corpus, &s.journal, &job, |d| {
         docs.push(d);
         Ok(())
     })?;
     if stats.documents == 0 {
-        bail_api("no usable documents in that file")?;
+        bail!("no usable documents in {}", corpus.display());
     }
 
     let out = index_dir(&s.disk).join(format!("{id}.sqlite"));
@@ -222,9 +343,9 @@ async fn post_build(
         Manifest::new()
     };
     manifest.add(CorpusEntry {
-        id: id.clone(),
-        name: req.name.unwrap_or_else(|| id.clone()),
-        language: req.language.unwrap_or_else(|| "it".to_string()),
+        id: id.to_string(),
+        name: name.to_string(),
+        language: language.to_string(),
         documents: built.documents,
         index_bytes: built.bytes,
         index_file: format!("index/{id}.sqlite"),
@@ -233,19 +354,7 @@ async fn post_build(
         sha256: String::new(),
     });
     manifest.save(&mpath)?;
-
-    Ok(Json(BuildResponse {
-        id,
-        documents: built.documents,
-        skipped: stats.skipped,
-        index_bytes: built.bytes,
-        build_secs: built.build_secs,
-        importance_signal: format!("{:?}", stats.signal),
-    }))
-}
-
-fn bail_api(msg: &str) -> Result<()> {
-    bail!("{msg}")
+    Ok(())
 }
 
 /// Resolve a corpus path, refusing anything that escapes the disk.
@@ -312,19 +421,32 @@ pub async fn bind(addr: SocketAddr) -> Result<tokio::net::TcpListener> {
         .with_context(|| format!("binding {addr}"))
 }
 
+/// Where the dashboard lives on a bunker disk, per spec §5.
+pub fn app_dir(disk: &Path) -> PathBuf {
+    disk.join("app")
+}
+
 /// Run the daemon until the process ends.
 pub async fn serve(disk: PathBuf, addr: SocketAddr) -> Result<()> {
+    serve_with_app(disk.clone(), addr, Some(app_dir(&disk))).await
+}
+
+/// Run the daemon, serving a dashboard from `app` if it exists.
+pub async fn serve_with_app(disk: PathBuf, addr: SocketAddr, app: Option<PathBuf>) -> Result<()> {
     if !disk.exists() {
         bail!("no such disk: {}", disk.display());
     }
     std::fs::create_dir_all(state_dir(&disk))?;
     let journal = Journal::open(&state_dir(&disk).join("journal.db"))?;
-    let state: SharedState = Arc::new(AppState { disk, journal });
+    let state: SharedState = Arc::new(AppState::new(disk, journal));
 
     let listener = bind(addr).await?;
     let local = listener.local_addr()?;
-    println!("swissbunkerd listening on http://{local}");
-    axum::serve(listener, router(state).into_make_service())
+    match &app {
+        Some(d) if d.is_dir() => println!("swissbunkerd serving {} on http://{local}", d.display()),
+        _ => println!("swissbunkerd listening on http://{local} (API only, no dashboard on disk)"),
+    }
+    axum::serve(listener, router_with_app(state, app).into_make_service())
         .await
         .context("serving")?;
     Ok(())

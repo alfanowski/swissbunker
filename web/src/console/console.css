@@ -1,0 +1,43 @@
+/* Plain on purpose. The Console's job in this phase is to be correct and legible on a laptop
+   from 2015; the designed version is phase 5. */
+:root {
+  --bg:#fafaf9; --fg:#1c1917; --muted:#78716c; --line:#e7e5e4;
+  --accent:#0369a1; --ok:#15803d; --bad:#b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#1c1917; --fg:#fafaf9; --muted:#a8a29e; --line:#292524;
+          --accent:#7dd3fc; --ok:#4ade80; --bad:#fca5a5; }
+}
+* { box-sizing:border-box }
+body { margin:0; padding:2rem 1.5rem; background:var(--bg); color:var(--fg);
+       font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif }
+#app { max-width:46rem; margin:0 auto }
+h1 { font-size:1.5rem; margin:0 0 .25rem; letter-spacing:-.02em }
+h2 { font-size:1rem; margin:2rem 0 .5rem; text-transform:uppercase;
+     letter-spacing:.06em; color:var(--muted) }
+h3 { font-size:1rem; margin:0 0 .15rem; color:var(--accent) }
+#summary { color:var(--muted); margin:0 0 1.5rem }
+.badge { font-size:.7rem; padding:.15rem .5rem; border-radius:99px; vertical-align:middle;
+         border:1px solid var(--line); color:var(--muted); text-transform:uppercase;
+         letter-spacing:.06em }
+.badge.connected { color:var(--ok); border-color:currentColor }
+.badge.portable { color:var(--accent); border-color:currentColor }
+.path, .hint { color:var(--muted); font-size:.85rem }
+code { font-family:ui-monospace,monospace; font-size:.85em }
+ul#corpora { list-style:none; padding:0; margin:0 }
+ul#corpora li { padding:.75rem 0; border-top:1px solid var(--line) }
+.meta { margin:0; color:var(--muted); font-size:.85rem }
+form { display:grid; gap:.6rem; margin:.5rem 0 }
+label { display:grid; gap:.2rem; font-size:.85rem; color:var(--muted) }
+input { padding:.5rem .7rem; font:inherit; border:1px solid var(--line);
+        border-radius:6px; background:var(--bg); color:var(--fg) }
+button { padding:.55rem 1.1rem; font:inherit; border:0; border-radius:6px;
+         background:var(--accent); color:var(--bg); cursor:pointer; justify-self:start }
+button:disabled { opacity:.5; cursor:default }
+.error { color:var(--bad); font-size:.85rem; min-height:1.2rem; margin:.3rem 0 }
+.job { display:flex; justify-content:space-between; gap:1rem; padding:.4rem 0;
+       border-top:1px solid var(--line); font-size:.85rem }
+.job-label { font-family:ui-monospace,monospace }
+.job-status { color:var(--muted) }
+.job-status.done { color:var(--ok) }
+.job-status.failed { color:var(--bad) }

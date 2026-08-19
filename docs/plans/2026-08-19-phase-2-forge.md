@@ -837,7 +837,28 @@ async fn the_daemon_refuses_to_listen_on_a_public_interface() {
 
 ---
 
-### Task 7: Bootstrap e wizard
+### Task 7: Bootstrap e Console · ✅ COMPLETATO 2026-08-19
+
+> **Console**: una pagina, due modalità decise a runtime dal fatto che il daemon risponda o
+> no. Verificata in un browser reale in entrambe:
+> - **Connected** (`http://127.0.0.1`): elenca i corpora, avvia build, segue il progresso via
+>   SSE. Mostra il segnale di importanza in italiano leggibile — *"kept in the order the
+>   source file listed them"* — perché è ciò che determina il senso dei risultati non ordinati.
+> - **Portable** (`file://`): degrada a sola lettura senza errori, che è la condizione normale
+>   su una macchina non tua, non un guasto.
+>
+> Un solo codice per entrambe: due codebase divergerebbero, e la divergenza si manifesterebbe
+> proprio sulla macchina dove non hai modo di fare debug.
+>
+> **Bootstrap** `install.sh`: POSIX sh, elenca i volumi con spazio e filesystem, misura la
+> velocità di scrittura prima di impegnare ore di indicizzazione, avverte se il disco non è
+> exFAT (e **non formatta mai**), e copia tutto **sul disco** senza toccare la macchina.
+>
+> **Progresso in streaming**: `/api/progress` è una vista sul journal, non un canale parallelo.
+> Il journal è già la fonte di verità e sopravvive ai crash; un canale duplicherebbe lo stato
+> e i due divergerebbero proprio quando qualcosa va storto.
+
+### Task 7 (originale): Bootstrap e wizard
 
 **Files:**
 - Create: `bootstrap/install.sh`

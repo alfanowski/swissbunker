@@ -21,7 +21,7 @@ swissbunkerd — build a SwissBunker disk
 USAGE:
   swissbunkerd build <corpus> --disk <path> --id <id> [--name <name>] [--language <lang>]
   swissbunkerd status --disk <path>
-  swissbunkerd serve --disk <path> [--port <n>]
+  swissbunkerd serve --disk <path> [--port <n>] [--app <dir>]
 
 ARGUMENTS:
   <corpus>            A JSONL file: one {\"title\":…,\"body\":…} object per line.
@@ -33,6 +33,7 @@ OPTIONS:
   --name <name>       Human name shown in the dashboard. Defaults to the id.
   --language <lang>   Two-letter code. Defaults to \"it\".
   --port <n>          Port for `serve`. Defaults to 7777.
+  --app <dir>         Dashboard directory. Defaults to <disk>/app.
 
 NOTES:
   Documents are indexed in the order they appear in the file, most important first.
@@ -192,8 +193,10 @@ fn cmd_serve(args: &[String]) -> Result<()> {
     // and a flag to widen it would be a flag to remove the boundary. See spec §10.
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
 
+    let app = flag(args, "--app").or_else(|| Some(swissbunkerd::api::app_dir(&disk)));
+
     let runtime = tokio::runtime::Runtime::new().context("starting the async runtime")?;
-    runtime.block_on(swissbunkerd::api::serve(disk, addr))
+    runtime.block_on(swissbunkerd::api::serve_with_app(disk, addr, app))
 }
 
 fn cmd_status(disk: &Path) -> Result<()> {
