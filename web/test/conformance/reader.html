@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Reader conformance</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>Reader conformance — file://</h1>
+<p>Select the volume holding <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" webkitdirectory multiple>
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// The unit suite runs over http:// because that is where Vitest lives, which makes it the
+// CONTROL condition, not the target. These assertions only mean something under a null
+// origin, so they live here and nowhere else.
+(function () {
+  Probe.init('c1', 'Reader conformance under a null origin');
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    var dbFile = files.filter(function (f) { return f.name === 'fts-test.sqlite'; })[0];
+
+    if (!dbFile) {
+      await Probe.check('fixture_found', function () { return false; });
+      Probe.finish();
+      return;
+    }
+    await Probe.check('fixture_found', function () { return true; });
+    Probe.info('database_gb', Math.round(dbFile.size / 1e9 * 100) / 100);
+
+    var R = window.SwissBunkerReader;
+
+    // The bundle must be self-sufficient. If the wasm were still being fetched, this is
+    // where a null origin would kill it — which is the whole point of inlining it.
+    await Probe.check('bundle_is_self_contained', function () {
+      return typeof R === 'object'
+        && typeof R.openDatabase === 'function'
+        && typeof R.sqliteWasmBinary === 'function'
+        && R.sqliteWasmBinary().length > 800000;
+    });
+
+    var db = null;
+
+    await Probe.check('opens_multi_gb_database', async function () {
+      var t0 = performance.now();
+      db = await R.openDatabase(new R.FileSource(dbFile), {
+        wasmBinary: R.sqliteWasmBinary(),
+        pageSize: 65536
+      });
+      Probe.info('open_ms', Math.round(performance.now() - t0));
+      var rows = db.query("SELECT count(*) FROM sqlite_master");
+      return rows.length > 0;
+    });
+
+    // The exit criterion of Phase 1, written as an assertion rather than a hope. The needle
+    // sits in exactly one row out of two million, so the right answer is known in advance.
+    await Probe.check('finds_needle_under_500ms', function () {
+      if (!db) { return false; }
+      var index = new R.FtsIndex(db);
+      var t0 = performance.now();
+      var hits = index.search('xyzzyneedlemarker');
+      var ms = performance.now() - t0;
+      Probe.info('cold_search_ms', Math.round(ms * 100) / 100);
+      if (hits.length !== 1) { return 'expected 1 hit, got ' + hits.length; }
+      if (hits[0].title !== 'Document 1337000') { return 'wrong title: ' + hits[0].title; }
+      return ms < 500 ? true : 'correct, but took ' + Math.round(ms) + ' ms';
+    });
+
+    // The point of the whole architecture: the index is never loaded.
+    await Probe.check('never_loaded_whole_file', function () {
+      if (!db) { return false; }
+      Probe.info('cache_stats', db.stats);
+      Probe.info('fraction_of_file_read', +(db.stats.bytesRead / dbFile.size).toFixed(5));
+      return db.stats.bytesRead < dbFile.size * 0.05;
+    });
+
+    await Probe.check('cache_stayed_bounded', function () {
+      return db ? db.stats.cachedBytes <= 128 * 1024 * 1024 : false;
+    });
+
+    // Warm and cold are different products from the user's point of view, so they are
+    // measured separately rather than averaged into one misleading number.
+    await Probe.measure('warm_search_ms', function () {
+      var index = new R.FtsIndex(db);
+      index.search('xyzzyneedlemarker');
+      return Promise.resolve();
+    }, 20);
+
+    // Distinct terms defeat the cache the way real use does: nobody searches one word
+    // twenty times.
+    var terms = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
+                 'iota', 'kappa', 'lambda', 'omicron', 'sigma', 'tau', 'upsilon',
+                 'phi', 'chi', 'psi', 'omega', 'rho'];
+    var termIndex = 0;
+    await Probe.measure('varied_search_ms', function () {
+      var index = new R.FtsIndex(db);
+      index.search(terms[termIndex++ % terms.length]);
+      return Promise.resolve();
+    }, 20);
+
+    Probe.info('final_stats', db.stats);
+    Probe.finish();
+  });
+}());
+</script>
