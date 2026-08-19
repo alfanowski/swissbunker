@@ -1419,7 +1419,16 @@ git commit -m "feat(ui): minimal search interface over the reader"
 
 ---
 
-### Task 8: Verifica su Wikipedia italiana reale
+### Task 8: Verifica su Wikipedia italiana reale · ⚠️ PARZIALE 2026-08-19
+
+> **Fatto:** verifica completa alla scala reale su corpus sintetico da 6.22 GB e 2 milioni di
+> documenti — 7 check di conformità verdi da `file://`, criterio di latenza superato di 17×.
+> Vedi [verifica Fase 1](../reports/2026-08-19-phase-1-verification.md).
+>
+> **Non fatto:** l'indice su Wikipedia italiana vera. Il corpus sintetico ha distribuzione
+> **uniforme** dei termini, il linguaggio naturale è zipfiano: il cutoff di ranking a 2000
+> match va ritarato su testo reale prima della Fase 2. Restano aperti anche Firefox/WebKit e
+> il disco USB reale.
 
 **Files:**
 - Create: `web/tools/build-test-index.py`

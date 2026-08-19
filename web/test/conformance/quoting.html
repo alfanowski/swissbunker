@@ -1,0 +1,92 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Quoting cost</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>Quoting cost — file://</h1>
+<p>Select <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" accept=".sqlite">
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// The page-size sweep showed p50 of 1-2 ms against a max of 2150 ms: nineteen queries out of
+// twenty are instant and one costs two seconds, doing ~6000 reads by itself. Page size only
+// changed how many BYTES those reads pulled, never how many reads there were — so the cost
+// is being decided above the cache, in how the query reaches FTS5.
+//
+// Prime suspect: sanitiseQuery wraps every term in double quotes, making it a PHRASE query.
+// A phrase may take a different path through FTS5 than a bare term, and if it does, the
+// safety of the sanitiser is being paid for in seconds.
+//
+// This measures the raw SQL directly, bypassing FtsIndex, so nothing else can be blamed.
+(function () {
+  Probe.init('c3', 'Cost of phrase quoting vs bare terms');
+
+  var TERMS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
+               'iota', 'kappa'];
+
+  function timeQueries(db, build) {
+    var samples = [];
+    for (var i = 0; i < TERMS.length; i++) {
+      var t0 = performance.now();
+      db.query("SELECT rowid FROM docs WHERE docs MATCH ? LIMIT 20", [build(TERMS[i])]);
+      samples.push(performance.now() - t0);
+    }
+    samples.sort(function (a, b) { return a - b; });
+    return {
+      p50: Math.round(samples[Math.floor(samples.length * 0.5)] * 100) / 100,
+      max: Math.round(samples[samples.length - 1] * 100) / 100,
+      total: Math.round(samples.reduce(function (a, b) { return a + b; }, 0))
+    };
+  }
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var dbFile = e.target.files[0];
+    if (!dbFile) { await Probe.check('fixture_found', function(){ return false; }); Probe.finish(); return; }
+    await Probe.check('fixture_found', function () { return true; });
+
+    var R = window.SwissBunkerReader;
+    var opts = { wasmBinary: R.sqliteWasmBinary(), pageSize: 8192 };
+
+    // A fresh database per variant, so neither warms the cache for the other.
+    var quotedDb = await R.openDatabase(new R.FileSource(dbFile), opts);
+    var quoted = timeQueries(quotedDb, function (t) { return '"' + t + '"'; });
+    quoted.stats = quotedDb.stats;
+    Probe.info('quoted_phrase', quoted);
+    quotedDb.close();
+
+    var bareDb = await R.openDatabase(new R.FileSource(dbFile), opts);
+    var bare = timeQueries(bareDb, function (t) { return t; });
+    bare.stats = bareDb.stats;
+    Probe.info('bare_term', bare);
+    bareDb.close();
+
+    // And with ORDER BY bm25 removed, since ranking is the other thing that could be paying
+    // for itself in seconds.
+    var rankDb = await R.openDatabase(new R.FileSource(dbFile), opts);
+    var rankSamples = [];
+    for (var i = 0; i < TERMS.length; i++) {
+      var t0 = performance.now();
+      rankDb.query("SELECT rowid FROM docs WHERE docs MATCH ? ORDER BY bm25(docs) LIMIT 20",
+                   ['"' + TERMS[i] + '"']);
+      rankSamples.push(performance.now() - t0);
+    }
+    rankSamples.sort(function (a, b) { return a - b; });
+    Probe.info('quoted_with_bm25', {
+      p50: Math.round(rankSamples[Math.floor(rankSamples.length * 0.5)] * 100) / 100,
+      max: Math.round(rankSamples[rankSamples.length - 1] * 100) / 100,
+      total: Math.round(rankSamples.reduce(function (a, b) { return a + b; }, 0)),
+      stats: rankDb.stats
+    });
+    rankDb.close();
+
+    Probe.info('verdict', {
+      quotingCostsMore: quoted.total > bare.total * 1.5,
+      ratio: bare.total > 0 ? +(quoted.total / bare.total).toFixed(2) : null
+    });
+
+    await Probe.check('sweep_completed', function () { return true; });
+    Probe.finish();
+  });
+}());
+</script>

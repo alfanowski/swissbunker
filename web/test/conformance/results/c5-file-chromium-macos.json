@@ -1,0 +1,58 @@
+{
+  "probe": "c5",
+  "title": "Ranking a hot term: bm25() vs rank",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "completed": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {
+    "a_bm25_order": {
+      "ms": 2120.2,
+      "reads": 5984,
+      "rows": 20
+    },
+    "b_rank_order": {
+      "ms": 2058.8,
+      "reads": 5956,
+      "rows": 20
+    },
+    "c_no_order": {
+      "ms": 12.9,
+      "reads": 39,
+      "rows": 20
+    },
+    "d_match_count": {
+      "matches": 35575,
+      "reads": 41
+    }
+  },
+  "_provenance": {
+    "engine": "chromium (playwright)",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "fixture": "/Volumes/SWISSTEST/fts-test.sqlite",
+    "complete": true
+  }
+}

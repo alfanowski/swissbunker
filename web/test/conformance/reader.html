@@ -88,7 +88,8 @@
     }, 20);
 
     // Distinct terms defeat the cache the way real use does: nobody searches one word
-    // twenty times.
+    // twenty times. 'tau' is in this list on purpose — it matches 35,575 of the two million
+    // documents and was the single query that cost 2.1 s before the rank cutoff existed.
     var terms = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
                  'iota', 'kappa', 'lambda', 'omicron', 'sigma', 'tau', 'upsilon',
                  'phi', 'chi', 'psi', 'omega', 'rho'];
@@ -98,6 +99,18 @@
       index.search(terms[termIndex++ % terms.length]);
       return Promise.resolve();
     }, 20);
+
+    // The hot term on its own, so its cost is visible rather than buried in a percentile.
+    await Probe.check('hot_term_under_500ms', function () {
+      var index = new R.FtsIndex(db);
+      var t0 = performance.now();
+      var res = index.searchDetailed('tau');
+      var ms = performance.now() - t0;
+      Probe.info('hot_term', { ms: Math.round(ms * 100) / 100, total: res.total,
+                               ranked: res.ranked, hits: res.hits.length });
+      if (res.total < 1000) { return 'tau matched only ' + res.total + ' — corpus changed'; }
+      return ms < 500 ? true : 'took ' + Math.round(ms) + ' ms';
+    });
 
     Probe.info('final_stats', db.stats);
     Probe.finish();

@@ -61,12 +61,17 @@ function runSearch(query: string): void {
   }
 
   const t0 = performance.now();
-  const hits = index.search(query, { limit: 20 });
+  const result = index.searchDetailed(query, { limit: 20 });
+  const hits = result.hits;
   const ms = Math.round(performance.now() - t0);
 
-  $('meta').textContent = hits.length
-    ? `${hits.length} results in ${ms} ms`
-    : `Nothing in the bunker matches “${query}” — ${ms} ms`;
+  // An unranked result set means "twenty documents containing this word", not "the twenty
+  // best". Presenting the two identically would mislead someone who has no way to check.
+  $('meta').textContent = !hits.length
+    ? `Nothing in the bunker matches “${query}” — ${ms} ms`
+    : result.ranked
+      ? `${result.total} results in ${ms} ms`
+      : `${result.total.toLocaleString()} results — too common to rank, showing the first ${hits.length} (${ms} ms)`;
 
   const frag = document.createDocumentFragment();
   for (const hit of hits) {

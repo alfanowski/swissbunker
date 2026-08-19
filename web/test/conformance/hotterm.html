@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hot term ranking</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>Hot term ranking — file://</h1>
+<p>Select <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" accept=".sqlite">
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// Three experiments narrowed the 2-second outlier down to one term: 'tau', which matches
+// 35,575 of the two million documents. Everything else in that sweep matched nothing.
+//
+// So the cost is not page size, not quoting, not snippet, and not the first call: it is
+// ORDER BY bm25(docs) having to score every match before LIMIT can discard all but twenty.
+// On real Italian Wikipedia, 'acqua' or 'storia' would be far hotter than 'tau'.
+//
+// FTS5 documents a special `rank` column that it can optimise, unlike a bare bm25() call in
+// ORDER BY. This measures whether that optimisation is real here, on a cold cache, over a
+// null origin — which is the only place the answer counts.
+(function () {
+  Probe.init('c5', 'Ranking a hot term: bm25() vs rank');
+
+  function run(db, sql, params) {
+    var before = db.stats.sourceReads;
+    var t0 = performance.now();
+    var rows = db.query(sql, params);
+    return {
+      ms: Math.round((performance.now() - t0) * 100) / 100,
+      reads: db.stats.sourceReads - before,
+      rows: rows.length
+    };
+  }
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var dbFile = e.target.files[0];
+    if (!dbFile) { await Probe.check('fixture_found', function(){return false;}); Probe.finish(); return; }
+    await Probe.check('fixture_found', function () { return true; });
+
+    var R = window.SwissBunkerReader;
+    var opts = { wasmBinary: R.sqliteWasmBinary(), pageSize: 8192 };
+    var SNIP = "snippet(docs, 1, '<mark>', '</mark>', '…', 24)";
+
+    // A fresh database for each variant: a warm cache would hide the whole effect.
+    var a = await R.openDatabase(new R.FileSource(dbFile), opts);
+    Probe.info('a_bm25_order', run(a,
+      'SELECT rowid, title, ' + SNIP + ', bm25(docs) FROM docs WHERE docs MATCH ?' +
+      ' ORDER BY bm25(docs) LIMIT ? OFFSET ?', ['"tau"', 20, 0]));
+    a.close();
+
+    var b = await R.openDatabase(new R.FileSource(dbFile), opts);
+    Probe.info('b_rank_order', run(b,
+      'SELECT rowid, title, ' + SNIP + ', rank FROM docs WHERE docs MATCH ?' +
+      ' ORDER BY rank LIMIT ? OFFSET ?', ['"tau"', 20, 0]));
+    b.close();
+
+    // No ordering at all, as the floor: whatever this costs is the irreducible part.
+    var c = await R.openDatabase(new R.FileSource(dbFile), opts);
+    Probe.info('c_no_order', run(c,
+      'SELECT rowid, title, ' + SNIP + ' FROM docs WHERE docs MATCH ? LIMIT ? OFFSET ?',
+      ['"tau"', 20, 0]));
+    c.close();
+
+    // And the count, to confirm how hot the term is from inside the browser too.
+    var d = await R.openDatabase(new R.FileSource(dbFile), opts);
+    var cnt = d.query('SELECT count(*) FROM docs WHERE docs MATCH ?', ['"tau"']);
+    Probe.info('d_match_count', { matches: cnt[0][0], reads: d.stats.sourceReads });
+    d.close();
+
+    await Probe.check('completed', function () { return true; });
+    Probe.finish();
+  });
+}());
+</script>

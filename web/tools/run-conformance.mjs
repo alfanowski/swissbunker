@@ -25,7 +25,8 @@ if (!existsSync(DB_FILE)) {
 }
 mkdirSync(OUT, { recursive: true });
 
-const page_ = join(ROOT, 'test', 'conformance', 'reader.html');
+const PAGE = process.env.SB_PAGE || 'reader.html';
+const page_ = join(ROOT, 'test', 'conformance', PAGE);
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
 
@@ -57,7 +58,8 @@ record._provenance = {
 };
 if (errors.length) record._consoleErrors = errors.slice(0, 20);
 
-writeFileSync(join(OUT, 'c1-file-chromium-macos.json'), JSON.stringify(record, null, 2));
+writeFileSync(join(OUT, `${record.probe}-file-chromium-macos.json`),
+              JSON.stringify(record, null, 2));
 
 const checks = record.checks || {};
 for (const [name, c] of Object.entries(checks)) {

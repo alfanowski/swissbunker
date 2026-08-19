@@ -401,6 +401,21 @@ con `k = 60`.
 **Il reranker è opzionale e disattivabile.** Su hardware debole aggiunge 1-2 s. La UI espone
 un interruttore "ricerca approfondita" invece di imporre l'attesa a tutti.
 
+> **Vincolo misurato in Fase 1: ordinare per rilevanza non scala sui termini frequenti.**
+> Su un indice da 6.22 GB, ordinare un termine presente in 35.575 documenti costa **2120 ms
+> e 5984 letture**, contro 12.9 ms e 39 letture senza ordinamento — **164×**. `ORDER BY rank`
+> non aiuta: FTS5 deve comunque assegnare un punteggio a ogni match prima che `LIMIT` ne
+> scarti il 99.9%.
+>
+> Mitigazione adottata: `count(*)` costa ~41 letture, quindi si conta prima e sopra i 2000
+> match si restituiscono i risultati in ordine di archiviazione, dichiarando `ranked: false`
+> fino alla UI. Un risultato non ordinato significa "documenti che contengono la parola", non
+> "i migliori", e presentarli allo stesso modo ingannerebbe chi non può verificare.
+>
+> **Conseguenza per la Fase 3:** la fusione RRF eredita lo stesso limite, perché anche lei
+> ordina. Il ramo BM25 deve applicare il cutoff prima della fusione, non dopo. Vedi
+> [verifica Fase 1 §2.2](../reports/2026-08-19-phase-1-verification.md).
+
 ---
 
 ## 8. Runtime LLM

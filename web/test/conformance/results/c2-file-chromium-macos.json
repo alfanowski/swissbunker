@@ -1,0 +1,119 @@
+{
+  "probe": "c2",
+  "title": "Page size sweep under a null origin",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "sweep_completed": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {
+    "database_gb": 6.22,
+    "pageSize_4096": {
+      "p50": 2.2,
+      "p95": 2382.4,
+      "max": 2382.4,
+      "totalMs": 2439,
+      "stats": {
+        "hits": 22,
+        "misses": 6068,
+        "evictions": 0,
+        "bytesRead": 24854528,
+        "sourceReads": 6068,
+        "cachedBytes": 24854528
+      },
+      "mbRead": 25
+    },
+    "pageSize_8192": {
+      "p50": 1.3,
+      "p95": 2149.8,
+      "max": 2149.8,
+      "totalMs": 2175,
+      "stats": {
+        "hits": 47,
+        "misses": 6043,
+        "evictions": 0,
+        "bytesRead": 49504256,
+        "sourceReads": 6043,
+        "cachedBytes": 49504256
+      },
+      "mbRead": 50
+    },
+    "pageSize_16384": {
+      "p50": 1.2,
+      "p95": 2387.7,
+      "max": 2387.7,
+      "totalMs": 2411,
+      "stats": {
+        "hits": 64,
+        "misses": 6026,
+        "evictions": 0,
+        "bytesRead": 98729984,
+        "sourceReads": 6026,
+        "cachedBytes": 98729984
+      },
+      "mbRead": 99
+    },
+    "pageSize_32768": {
+      "p50": 1.9,
+      "p95": 3328.5,
+      "max": 3328.5,
+      "totalMs": 3376,
+      "stats": {
+        "hits": 68,
+        "misses": 6022,
+        "evictions": 1926,
+        "bytesRead": 197328896,
+        "sourceReads": 6022,
+        "cachedBytes": 134217728
+      },
+      "mbRead": 197
+    },
+    "pageSize_65536": {
+      "p50": 2.2,
+      "p95": 4212.1,
+      "max": 4212.1,
+      "totalMs": 4259,
+      "stats": {
+        "hits": 104,
+        "misses": 5986,
+        "evictions": 3938,
+        "bytesRead": 392298496,
+        "sourceReads": 5986,
+        "cachedBytes": 134217728
+      },
+      "mbRead": 392
+    },
+    "best_page_size": {
+      "pageSize": 8192,
+      "totalMs": 2175
+    }
+  },
+  "_provenance": {
+    "engine": "chromium (playwright)",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "fixture": "/Volumes/SWISSTEST/fts-test.sqlite",
+    "complete": true
+  }
+}

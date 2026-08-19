@@ -5,7 +5,7 @@
 **A portable, offline knowledge bunker on a single disk.**
 Plug it into any computer. No installation. No admin rights. No internet.
 
-`Status: phase 0 complete — GO with changes` · `License: proprietary` · `Runtime: browser + WebGPU`
+`Status: phase 1 reader working` · `License: proprietary` · `Runtime: browser + WebGPU`
 
 </div>
 
@@ -106,9 +106,17 @@ rather than the ~2 GB assumed.
 See the [Phase 0 findings](docs/reports/2026-08-19-phase-0-findings.md), including a full
 account of what the spike did **not** prove.
 
-Next: the [Phase 1 plan](docs/plans/2026-08-19-phase-1-reader.md) — a read-only SQLite VFS
-over blocking Blob-URL reads, an LRU page cache, and FTS5 search, verified against real
-Italian Wikipedia from `file://`.
+**Phase 1: the reader works.** From a page opened with `file://`, with nothing installed on
+the machine, a 6.22 GB SQLite FTS5 index opens in **19 ms** and answers a search in **17 ms**,
+reading **0.014% of the file**. 45 unit tests, 7 conformance checks.
+
+Two problems nearly sank it, neither in the plan: initialisation died only under a null
+origin, because Emscripten resolves the wasm filename before it reads the bytes you handed
+it; and ranking a term present in 35,575 documents cost 2120 ms, which took four experiments
+to isolate and disproved three hypotheses on the way.
+
+See the [Phase 1 verification](docs/reports/2026-08-19-phase-1-verification.md) — including
+what it does **not** prove, starting with the fact that the corpus is synthetic.
 
 ## License
 

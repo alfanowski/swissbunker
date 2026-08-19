@@ -23,25 +23,69 @@
       "detail": true
     },
     "opens_multi_gb_database": {
-      "ok": false,
-      "detail": "Failed to construct 'URL': Invalid URL"
+      "ok": true,
+      "detail": true
     },
     "finds_needle_under_500ms": {
-      "ok": false,
-      "detail": false
+      "ok": true,
+      "detail": true
     },
     "never_loaded_whole_file": {
-      "ok": false,
-      "detail": false
+      "ok": true,
+      "detail": true
     },
     "cache_stayed_bounded": {
-      "ok": false,
-      "detail": false
+      "ok": true,
+      "detail": true
+    },
+    "hot_term_under_500ms": {
+      "ok": true,
+      "detail": true
     }
   },
-  "measurements": {},
+  "measurements": {
+    "warm_search_ms": {
+      "runs": 20,
+      "p50": 0.1,
+      "p95": 0.3,
+      "min": 0,
+      "max": 0.3
+    },
+    "varied_search_ms": {
+      "runs": 20,
+      "p50": 3.4,
+      "p95": 30,
+      "min": 0.8,
+      "max": 30
+    }
+  },
   "info": {
-    "database_gb": 6.22
+    "database_gb": 6.22,
+    "open_ms": 19,
+    "cold_search_ms": 17.3,
+    "cache_stats": {
+      "hits": 6,
+      "misses": 13,
+      "evictions": 0,
+      "bytesRead": 851968,
+      "sourceReads": 13,
+      "cachedBytes": 851968
+    },
+    "fraction_of_file_read": 0.00014,
+    "hot_term": {
+      "ms": 1.8,
+      "total": 35575,
+      "ranked": false,
+      "hits": 20
+    },
+    "final_stats": {
+      "hits": 51,
+      "misses": 108,
+      "evictions": 0,
+      "bytesRead": 7077888,
+      "sourceReads": 108,
+      "cachedBytes": 7077888
+    }
   },
   "_provenance": {
     "engine": "chromium (playwright)",
@@ -51,10 +95,6 @@
     "headless": false,
     "permissiveFlags": "none",
     "fixture": "/Volumes/SWISSTEST/fts-test.sqlite",
-    "complete": false
-  },
-  "_consoleErrors": [
-    "Exception loading sqlite3 module: TypeError: Failed to construct 'URL': Invalid URL\n    at ag (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:1:7859)\n    at Lg (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:1:8774)\n    at TI (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:2:50739)\n    at tA (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:27324)\n    at zQ (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:29451)\n    at Object.Rg (file:///Users/alfanowski/Desktop/SwissBunker/web/dist/reader.js:3:29533)\n    at file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/reader.html:47:20\n    at Object.check (file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/probe.js:51:27)\n    at HTMLInputElement.<anonymous> (file:///Users/alfanowski/Desktop/SwissBunker/web/test/conformance/reader.html:45:17)",
-    "pageerror: Cannot read properties of null (reading 'query')"
-  ]
+    "complete": true
+  }
 }

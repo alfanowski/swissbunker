@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Page size sweep</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>Page size sweep — file://</h1>
+<p>Select <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" accept=".sqlite">
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// Why this exists: the first conformance run showed p95 of 4.3 s on varied search terms,
+// with 5994 source reads, 392 MB pulled and 3946 evictions against only 103 hits — textbook
+// cache thrashing.
+//
+// The suspect is the 64 KB page. Phase 0 measured contiguous reads at 39x the throughput of
+// scattered ones, and that finding drove the page size up — but it was measured on an IVF
+// scan, which reads big contiguous runs. A B-tree lookup is the opposite access pattern:
+// a handful of scattered 4 KB nodes. Applying a conclusion from one pattern to the other is
+// exactly the kind of mistake that only shows up in a measurement.
+//
+// So: sweep the page size and let the numbers decide, rather than reasoning from the wrong
+// precedent.
+(function () {
+  Probe.init('c2', 'Page size sweep under a null origin');
+
+  // Terms absent from the corpus: a lookup that must walk the term index and find nothing
+  // is the honest worst case for cache behaviour, since nothing gets reused.
+  var TERMS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
+               'iota', 'kappa', 'lambda', 'omicron', 'sigma', 'tau', 'upsilon',
+               'phi', 'chi', 'psi', 'omega', 'rho'];
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var dbFile = e.target.files[0];
+    if (!dbFile) { await Probe.check('fixture_found', function () { return false; }); Probe.finish(); return; }
+    await Probe.check('fixture_found', function () { return true; });
+    Probe.info('database_gb', Math.round(dbFile.size / 1e9 * 100) / 100);
+
+    var R = window.SwissBunkerReader;
+    var sizes = [4096, 8192, 16384, 32768, 65536];
+    var results = {};
+
+    for (var s = 0; s < sizes.length; s++) {
+      var pageSize = sizes[s];
+      // A fresh database per configuration: reusing one would let an earlier page size warm
+      // the cache for the next and quietly flatter whichever ran last.
+      var db = await R.openDatabase(new R.FileSource(dbFile), {
+        wasmBinary: R.sqliteWasmBinary(),
+        pageSize: pageSize,
+        maxBytes: 128 * 1024 * 1024
+      });
+      var index = new R.FtsIndex(db);
+
+      var samples = [];
+      for (var i = 0; i < TERMS.length; i++) {
+        var t0 = performance.now();
+        index.search(TERMS[i]);
+        samples.push(performance.now() - t0);
+      }
+      samples.sort(function (a, b) { return a - b; });
+
+      results[pageSize] = {
+        p50: Math.round(samples[Math.floor(samples.length * 0.5)] * 100) / 100,
+        p95: Math.round(samples[Math.floor(samples.length * 0.95)] * 100) / 100,
+        max: Math.round(samples[samples.length - 1] * 100) / 100,
+        totalMs: Math.round(samples.reduce(function (a, b) { return a + b; }, 0)),
+        stats: db.stats,
+        mbRead: Math.round(db.stats.bytesRead / 1e6)
+      };
+      Probe.info('pageSize_' + pageSize, results[pageSize]);
+      db.close();
+    }
+
+    // Pick the winner on total time, and record it so the default is chosen by evidence.
+    var best = null;
+    for (var key in results) {
+      if (!best || results[key].totalMs < results[best].totalMs) { best = key; }
+    }
+    Probe.info('best_page_size', { pageSize: Number(best), totalMs: results[best].totalMs });
+
+    await Probe.check('sweep_completed', function () { return Object.keys(results).length === sizes.length; });
+    Probe.finish();
+  });
+}());
+</script>

@@ -1,0 +1,96 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>First query cost</title>
+<style>body{font:14px/1.6 ui-monospace,monospace;margin:2rem;max-width:80ch}pre{background:#f4f4f5;padding:1rem;border-radius:8px;overflow-x:auto}</style>
+<h1>First query cost — file://</h1>
+<p>Select <code>fts-test.sqlite</code>.</p>
+<input type="file" id="dir-input" accept=".sqlite">
+<pre id="probe-output"></pre>
+<script src="probe.js"></script>
+<script src="../../dist/reader.js"></script>
+<script>
+// Two experiments have now ruled out the obvious suspects. Page size only changed how many
+// BYTES each read pulled, never the ~6000 reads themselves. Quoting and bm25 cost nothing:
+// direct SQL answered ten queries in 19-30 ms with 40 reads total.
+//
+// The remaining difference between the fast path and the slow one is that the sweep went
+// through FtsIndex.search(), which adds snippet() to the SELECT — and the shape of the cost
+// (one query at 2 s, nineteen at 1 ms) points at a one-off, not a per-query, expense.
+//
+// So this measures each query individually and in order, with and without snippet, instead
+// of hiding the shape inside a percentile. A p50 cannot show you a first-call cost.
+(function () {
+  Probe.init('c4', 'Where the one-off cost actually is');
+
+  var TERMS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon'];
+
+  async function trial(R, dbFile, label, sql, buildParams) {
+    var db = await R.openDatabase(new R.FileSource(dbFile), {
+      wasmBinary: R.sqliteWasmBinary(), pageSize: 8192
+    });
+    var perQuery = [];
+    for (var i = 0; i < TERMS.length; i++) {
+      var before = db.stats.sourceReads;
+      var t0 = performance.now();
+      db.query(sql, buildParams(TERMS[i]));
+      perQuery.push({
+        term: TERMS[i],
+        ms: Math.round((performance.now() - t0) * 100) / 100,
+        reads: db.stats.sourceReads - before
+      });
+    }
+    Probe.info(label, { perQuery: perQuery, totalReads: db.stats.sourceReads });
+    db.close();
+  }
+
+  document.getElementById('dir-input').addEventListener('change', async function (e) {
+    var dbFile = e.target.files[0];
+    if (!dbFile) { await Probe.check('fixture_found', function(){ return false; }); Probe.finish(); return; }
+    await Probe.check('fixture_found', function () { return true; });
+
+    var R = window.SwissBunkerReader;
+
+    // Bare match, no projection beyond rowid: the cheapest possible query shape.
+    await trial(R, dbFile, 'a_rowid_only',
+      'SELECT rowid FROM docs WHERE docs MATCH ? LIMIT 20',
+      function (t) { return ['"' + t + '"']; });
+
+    // Add the title column: now the row itself must be fetched.
+    await trial(R, dbFile, 'b_with_title',
+      'SELECT rowid, title FROM docs WHERE docs MATCH ? LIMIT 20',
+      function (t) { return ['"' + t + '"']; });
+
+    // Add snippet(): the suspect.
+    await trial(R, dbFile, 'c_with_snippet',
+      "SELECT rowid, title, snippet(docs, 1, '<mark>', '</mark>', '…', 24) FROM docs WHERE docs MATCH ? LIMIT 20",
+      function (t) { return ['"' + t + '"']; });
+
+    // The exact query FtsIndex issues, bound parameters and all.
+    await trial(R, dbFile, 'd_full_ftsindex_query',
+      "SELECT rowid, title, snippet(docs, 1, '<mark>', '</mark>', '…', 24), bm25(docs)" +
+      ' FROM docs WHERE docs MATCH ? ORDER BY bm25(docs) LIMIT ? OFFSET ?',
+      function (t) { return ['"' + t + '"', 20, 0]; });
+
+    // And a term that actually matches, to see whether returning rows changes the picture.
+    var db = await R.openDatabase(new R.FileSource(dbFile), {
+      wasmBinary: R.sqliteWasmBinary(), pageSize: 8192
+    });
+    var hits = [];
+    for (var i = 0; i < 3; i++) {
+      var before = db.stats.sourceReads;
+      var t0 = performance.now();
+      var rows = db.query(
+        "SELECT rowid, title, snippet(docs, 1, '<mark>', '</mark>', '…', 24), bm25(docs)" +
+        ' FROM docs WHERE docs MATCH ? ORDER BY bm25(docs) LIMIT ? OFFSET ?',
+        ['"xyzzyneedlemarker"', 20, 0]);
+      hits.push({ ms: Math.round((performance.now() - t0) * 100) / 100,
+                  reads: db.stats.sourceReads - before, rows: rows.length });
+    }
+    Probe.info('e_matching_term_repeated', hits);
+    db.close();
+
+    await Probe.check('completed', function () { return true; });
+    Probe.finish();
+  });
+}());
+</script>

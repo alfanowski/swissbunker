@@ -1,0 +1,82 @@
+{
+  "probe": "c3",
+  "title": "Cost of phrase quoting vs bare terms",
+  "context": {
+    "origin": "file://",
+    "protocol": "file:",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "platform": "macOS",
+    "isSecureContext": true,
+    "crossOriginIsolated": false,
+    "hasSharedArrayBuffer": false,
+    "hasWebGPU": true,
+    "deviceMemoryGB": 8,
+    "hardwareConcurrency": 10
+  },
+  "checks": {
+    "fixture_found": {
+      "ok": true,
+      "detail": true
+    },
+    "sweep_completed": {
+      "ok": true,
+      "detail": true
+    }
+  },
+  "measurements": {},
+  "info": {
+    "quoted_phrase": {
+      "p50": 1.8,
+      "max": 13.8,
+      "total": 30,
+      "stats": {
+        "hits": 2,
+        "misses": 40,
+        "evictions": 0,
+        "bytesRead": 327680,
+        "sourceReads": 40,
+        "cachedBytes": 327680
+      }
+    },
+    "bare_term": {
+      "p50": 1.7,
+      "max": 3.9,
+      "total": 19,
+      "stats": {
+        "hits": 2,
+        "misses": 40,
+        "evictions": 0,
+        "bytesRead": 327680,
+        "sourceReads": 40,
+        "cachedBytes": 327680
+      }
+    },
+    "quoted_with_bm25": {
+      "p50": 1.4,
+      "max": 3.3,
+      "total": 16,
+      "stats": {
+        "hits": 2,
+        "misses": 40,
+        "evictions": 0,
+        "bytesRead": 327680,
+        "sourceReads": 40,
+        "cachedBytes": 327680
+      }
+    },
+    "verdict": {
+      "quotingCostsMore": true,
+      "ratio": 1.58
+    }
+  },
+  "_provenance": {
+    "engine": "chromium (playwright)",
+    "protocol": "file",
+    "os": "macOS",
+    "machine": "Apple M4, 16 GB",
+    "headless": false,
+    "permissiveFlags": "none",
+    "fixture": "/Volumes/SWISSTEST/fts-test.sqlite",
+    "complete": true
+  }
+}

@@ -98,6 +98,29 @@ describe('FtsIndex', () => {
     }
   });
 
+  it('reports ranked=true for a rare term', () => {
+    const r = index.searchDetailed('xyzzyneedlemarker');
+    expect(r.ranked).toBe(true);
+    expect(r.total).toBe(1);
+    expect(r.hits[0]!.score).toBeGreaterThan(0);
+  });
+
+  it('falls back to unranked above the cutoff, and says so', () => {
+    // rankLimit of 0 forces the hot-term path on any match at all, so the contract can be
+    // tested without needing a corpus large enough to be genuinely expensive.
+    const r = index.searchDetailed('xyzzyneedlemarker', { rankLimit: 0 });
+    expect(r.ranked).toBe(false);
+    expect(r.total).toBe(1);
+    expect(r.hits.length).toBe(1);
+    // Score is meaningless when nothing was ranked, and is zeroed rather than faked.
+    expect(r.hits[0]!.score).toBe(0);
+  });
+
+  it('reports the true total, not the page size', () => {
+    const r = index.searchDetailed('xyzzyneedlemarker', { limit: 1 });
+    expect(r.total).toBe(1);
+  });
+
   it('counts matches', () => {
     expect(index.count('xyzzyneedlemarker')).toBe(1);
     expect(index.count('zzzznotpresentzzzz')).toBe(0);
